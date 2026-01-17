@@ -54,7 +54,7 @@ export function Header({ user }: HeaderProps) {
 
     return (
         <header className="sticky top-0 z-40 flex h-16 items-center gap-4 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-4 lg:px-6">
-            <MobileSidebar role={user.role} />
+            <MobileSidebar userRole={user.role} />
 
             <div className="flex-1" />
 

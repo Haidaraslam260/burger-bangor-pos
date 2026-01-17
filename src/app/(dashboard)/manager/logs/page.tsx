@@ -1,30 +1,11 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import {
-    FileText,
-    ShoppingCart,
-    Package,
-    Warehouse,
-    User,
-    Clock,
-    CheckCircle2
-} from "lucide-react";
+import { Clock, CheckCircle2 } from "lucide-react";
 import { db } from "@/lib/db";
 import { activityLogs, users } from "@/db/schema";
 import { desc, eq } from "drizzle-orm";
 import { formatDistanceToNow } from "date-fns";
 import { id } from "date-fns/locale";
-
-function getActionIcon(action: string) {
-    const icons: Record<string, React.ReactNode> = {
-        CHECKOUT: <ShoppingCart className="h-4 w-4" />,
-        RESTOCK: <Warehouse className="h-4 w-4" />,
-        UPDATE: <Package className="h-4 w-4" />,
-        CREATE: <User className="h-4 w-4" />,
-        DELETE: <FileText className="h-4 w-4" />,
-    };
-    return icons[action] || <FileText className="h-4 w-4" />;
-}
 
 function getActionColor(action: string) {
     const colors: Record<string, string> = {
@@ -33,6 +14,7 @@ function getActionColor(action: string) {
         UPDATE: "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 border-orange-200 dark:border-orange-800",
         CREATE: "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400 border-purple-200 dark:border-purple-800",
         DELETE: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 border-red-200 dark:border-red-800",
+        ADJUST: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400 border-yellow-200 dark:border-yellow-800",
     };
     return colors[action] || "bg-gray-100 text-gray-700 border-gray-200";
 }
@@ -50,7 +32,7 @@ export default async function LogsPage() {
         .from(activityLogs)
         .leftJoin(users, eq(activityLogs.userId, users.id))
         .orderBy(desc(activityLogs.createdAt))
-        .limit(50); // Limit last 50 logs
+        .limit(50);
 
     return (
         <div className="space-y-6">
@@ -72,7 +54,6 @@ export default async function LogsPage() {
                     <div className="relative border-l border-muted ml-4 space-y-8 py-2">
                         {logs.map((log) => (
                             <div key={log.id} className="relative pl-8 group">
-                                {/* Timeline Dot */}
                                 <span className={`absolute -left-[9px] top-1 h-4 w-4 rounded-full border-2 border-background ${getActionColor(log.action).split(' ')[0]} ring-4 ring-background`} />
 
                                 <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2">
@@ -91,7 +72,6 @@ export default async function LogsPage() {
 
                                         <p className="text-sm text-foreground/80 leading-relaxed max-w-2xl">
                                             {JSON.parse(JSON.stringify(log.details))}
-                                            {/* Note: In production we might want to parse details if it's JSON */}
                                         </p>
                                     </div>
 

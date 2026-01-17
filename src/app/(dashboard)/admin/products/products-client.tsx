@@ -29,7 +29,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
-import { Plus, Pencil, Trash2, Loader2, Power } from "lucide-react";
+import { Plus, Trash2, Loader2, Power } from "lucide-react";
 import { createProduct, deleteProduct, toggleProductStatus } from "@/actions/products";
 import { CURRENCY_FORMAT, PRODUCT_CATEGORIES } from "@/constants";
 import { toast } from "sonner";
@@ -41,7 +41,6 @@ interface ProductsClientProps {
 
 export default function ProductsClient({ products }: ProductsClientProps) {
     const [isOpen, setIsOpen] = useState(false);
-    const [editingProduct, setEditingProduct] = useState<Product | null>(null);
     const [isPending, startTransition] = useTransition();
     const [deleteId, setDeleteId] = useState<number | null>(null);
 
@@ -163,7 +162,7 @@ export default function ProductsClient({ products }: ProductsClientProps) {
             {/* Products Table */}
             {products.length === 0 ? (
                 <div className="text-center py-12 text-muted-foreground">
-                    <p>Belum ada produk. Klik tombol "Tambah Produk" untuk memulai.</p>
+                    <p>Belum ada produk. Klik tombol &quot;Tambah Produk&quot; untuk memulai.</p>
                 </div>
             ) : (
                 <Table>

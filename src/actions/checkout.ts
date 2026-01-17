@@ -97,7 +97,7 @@ export async function checkout(
                     .where(eq(inventory.ingredientId, ingredientId))
                     .orderBy(asc(inventory.expiryDate));
 
-                let totalAvailable = stocks.reduce(
+                const totalAvailable = stocks.reduce(
                     (sum, stock) => sum + stock.stockQuantity,
                     0
                 );

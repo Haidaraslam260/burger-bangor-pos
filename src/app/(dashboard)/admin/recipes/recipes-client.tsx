@@ -4,7 +4,6 @@ import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
     Table,
@@ -15,21 +14,13 @@ import {
     TableRow,
 } from "@/components/ui/table";
 import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
-} from "@/components/ui/dialog";
-import {
     Select,
     SelectContent,
     SelectItem,
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
-import { Plus, Trash2, Loader2, ChefHat, Save } from "lucide-react";
+import { Plus, Trash2, Loader2 } from "lucide-react";
 import { deleteRecipeItem, upsertRecipeItem } from "@/actions/recipes";
 import { toast } from "sonner";
 import type { Product, Ingredient } from "@/db/schema";
@@ -118,7 +109,7 @@ export default function RecipesClient({ products, ingredients, recipesByProduct 
                         <CardContent className="p-0">
                             {productRecipes.length === 0 && !isEditing ? (
                                 <div className="text-center py-6 text-muted-foreground text-sm">
-                                    Belum ada resep. Klik "Edit" untuk menambahkan.
+                                    Belum ada resep. Klik &quot;Edit&quot; untuk menambahkan.
                                 </div>
                             ) : (
                                 <>

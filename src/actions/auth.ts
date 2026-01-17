@@ -2,11 +2,10 @@
 
 import { signIn, signOut } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { users, activityLogs } from "@/db/schema";
+import { users } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { hash } from "bcryptjs";
 import { loginSchema, registerSchema } from "@/lib/validations";
-import { redirect } from "next/navigation";
 import type { ActionResult } from "@/types";
 
 /**
@@ -23,6 +22,7 @@ export async function login(
         };
 
         const validationResult = loginSchema.safeParse(rawData);
+
         if (!validationResult.success) {
             return {
                 success: false,
@@ -37,36 +37,31 @@ export async function login(
         });
 
         if (result?.error) {
-            return {
-                success: false,
-                error: result.error,
-            };
+            return { success: false, error: result.error };
         }
 
-        return {
-            success: true,
-            message: "Login berhasil!",
-        };
+        return { success: true, message: "Login berhasil!" };
     } catch (error) {
         console.error("Login error:", error);
-        return {
-            success: false,
-            error: error instanceof Error ? error.message : "Terjadi kesalahan saat login",
-        };
+        // Handle credential errors from NextAuth
+        if (error instanceof Error && error.message.includes("CredentialsSignin")) {
+            return { success: false, error: "Email atau password salah" };
+        }
+        return { success: false, error: "Terjadi kesalahan saat login" };
     }
 }
 
 /**
  * Logout action
  */
-export async function logout() {
-    await signOut({ redirectTo: "/login" });
+export async function logout(): Promise<void> {
+    await signOut({ redirect: true, redirectTo: "/login" });
 }
 
 /**
- * Register new user (Admin only)
+ * Register action (Admin only)
  */
-export async function registerUser(
+export async function register(
     prevState: ActionResult | null,
     formData: FormData
 ): Promise<ActionResult> {
@@ -78,6 +73,7 @@ export async function registerUser(
         };
 
         const validationResult = registerSchema.safeParse(rawData);
+
         if (!validationResult.success) {
             return {
                 success: false,
@@ -85,46 +81,30 @@ export async function registerUser(
             };
         }
 
-        const { email, password, fullName } = validationResult.data;
-
-        // Check if user already exists
+        // Check if email already exists
         const existingUser = await db
             .select()
             .from(users)
-            .where(eq(users.email, email))
-            .limit(1);
+            .where(eq(users.email, validationResult.data.email));
 
         if (existingUser.length > 0) {
-            return {
-                success: false,
-                error: "Email sudah terdaftar",
-            };
+            return { success: false, error: "Email sudah terdaftar" };
         }
 
         // Hash password
-        const hashedPassword = await hash(password, 12);
+        const hashedPassword = await hash(validationResult.data.password, 12);
 
         // Create user
-        const [newUser] = await db
-            .insert(users)
-            .values({
-                email,
-                password: hashedPassword,
-                fullName,
-                role: "kasir", // Default role
-            })
-            .returning();
+        await db.insert(users).values({
+            email: validationResult.data.email,
+            password: hashedPassword,
+            fullName: validationResult.data.fullName,
+            role: "kasir", // Default role
+        });
 
-        return {
-            success: true,
-            message: "User berhasil dibuat!",
-            data: { userId: newUser.id },
-        };
+        return { success: true, message: "Registrasi berhasil!" };
     } catch (error) {
         console.error("Register error:", error);
-        return {
-            success: false,
-            error: error instanceof Error ? error.message : "Terjadi kesalahan saat registrasi",
-        };
+        return { success: false, error: "Terjadi kesalahan saat registrasi" };
     }
 }

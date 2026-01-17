@@ -1,6 +1,5 @@
 import { auth } from "@/lib/auth";
 import { NextResponse } from "next/server";
-import type { NextRequest } from "next/server";
 import { PROTECTED_ROUTES, DEFAULT_REDIRECT } from "@/constants";
 import type { Role } from "@/db/schema";
 

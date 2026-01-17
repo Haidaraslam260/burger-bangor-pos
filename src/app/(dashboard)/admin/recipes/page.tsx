@@ -1,4 +1,4 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ChefHat } from "lucide-react";
 import { db } from "@/lib/db";
@@ -11,7 +11,7 @@ export default async function RecipesPage() {
     const productList = await db.select().from(products).orderBy(products.name);
     const ingredientList = await db.select().from(ingredients).orderBy(ingredients.name);
 
-    // Get all recipes with ingredient names
+    // Get all recipes with ingredient info
     const recipeList = await db
         .select({
             id: recipes.id,
@@ -21,17 +21,16 @@ export default async function RecipesPage() {
             quantityNeeded: recipes.quantityNeeded,
         })
         .from(recipes)
-        .innerJoin(ingredients, eq(recipes.ingredientId, ingredients.id))
-        .orderBy(recipes.productId);
+        .innerJoin(ingredients, eq(recipes.ingredientId, ingredients.id));
 
     // Group recipes by product
     const recipesByProduct: Record<number, typeof recipeList> = {};
-    recipeList.forEach((recipe) => {
+    for (const recipe of recipeList) {
         if (!recipesByProduct[recipe.productId]) {
             recipesByProduct[recipe.productId] = [];
         }
         recipesByProduct[recipe.productId].push(recipe);
-    });
+    }
 
     return (
         <div className="space-y-6">
@@ -40,28 +39,25 @@ export default async function RecipesPage() {
                     <h1 className="text-3xl font-bold tracking-tight">Resep</h1>
                     <p className="text-muted-foreground">Kelola komposisi bahan untuk setiap produk</p>
                 </div>
-                <Badge variant="secondary" className="text-sm">
-                    {recipeList.length} total bahan
-                </Badge>
             </div>
 
-            {productList.length === 0 ? (
-                <Card>
-                    <CardContent className="py-12">
-                        <div className="text-center text-muted-foreground">
-                            <ChefHat className="h-12 w-12 mx-auto mb-4 opacity-20" />
-                            <p>Belum ada produk untuk dibuat resep.</p>
-                            <p className="text-sm">Tambahkan produk terlebih dahulu di halaman Produk.</p>
+            <Card>
+                <CardContent className="pt-6">
+                    <div className="flex items-center justify-between mb-6">
+                        <div className="flex items-center gap-2">
+                            <ChefHat className="h-5 w-5 text-orange-500" />
+                            <h2 className="font-semibold">Daftar Resep Produk</h2>
                         </div>
-                    </CardContent>
-                </Card>
-            ) : (
-                <RecipesClient
-                    products={productList}
-                    ingredients={ingredientList}
-                    recipesByProduct={recipesByProduct}
-                />
-            )}
+                        <Badge variant="secondary">{productList.length} produk</Badge>
+                    </div>
+
+                    <RecipesClient
+                        products={productList}
+                        ingredients={ingredientList}
+                        recipesByProduct={recipesByProduct}
+                    />
+                </CardContent>
+            </Card>
         </div>
     );
 }

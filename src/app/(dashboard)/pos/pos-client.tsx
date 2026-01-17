@@ -28,7 +28,6 @@ import { checkout } from "@/actions/checkout";
 import { CURRENCY_FORMAT, PRODUCT_CATEGORIES } from "@/constants";
 import type { CartItem, Cart } from "@/types";
 import type { TransactionType, Product } from "@/db/schema";
-import Image from "next/image";
 
 interface POSClientProps {
     products: Product[];
@@ -97,14 +96,6 @@ export default function POSClient({ products }: POSClientProps) {
                 )
                 .filter((item) => item.quantity > 0);
 
-            return calculateCart(updatedItems);
-        });
-    }
-
-    // Remove from cart
-    function removeFromCart(productId: number) {
-        setCart((prev) => {
-            const updatedItems = prev.items.filter((item) => item.productId !== productId);
             return calculateCart(updatedItems);
         });
     }

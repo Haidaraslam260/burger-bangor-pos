@@ -14,9 +14,19 @@ declare module "next-auth" {
             email: string;
             fullName: string | null;
             role: Role;
-        };
+        } & DefaultSession["user"];
+    }
+
+    interface User {
+        id: string;
+        email: string;
+        name?: string | null;
+        fullName?: string | undefined;
+        role?: Role;
     }
 }
+
+import type { DefaultSession } from "next-auth";
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
     providers: [
@@ -57,14 +67,14 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                     throw new Error("Password salah");
                 }
 
-                // Return the user object - NextAuth will handle the type
+                // Return the user object
                 return {
                     id: user.id,
                     email: user.email,
-                    name: user.fullName, // NextAuth expects 'name' not 'fullName'
-                    fullName: user.fullName,
+                    name: user.fullName,
+                    fullName: user.fullName ?? undefined,
                     role: user.role,
-                } as any; // Type assertion to bypass strict AdapterUser check
+                };
             },
         }),
     ],
@@ -73,21 +83,17 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             if (user) {
                 token.id = user.id;
                 token.email = user.email;
-                token.fullName = (user as any).fullName;
-                token.role = (user as any).role;
+                token.fullName = user.fullName;
+                token.role = user.role;
             }
             return token;
         },
         async session({ session, token }) {
-            // Type-safe session.user assignment
-            if (token) {
-                (session.user as any) = {
-                    id: token.id as string,
-                    email: token.email as string,
-                    fullName: token.fullName as string | null,
-                    role: token.role as Role,
-                };
-            }
+            // Type-safe session.user assignment using spread to merge with base
+            session.user.id = token.id as string;
+            session.user.email = token.email as string;
+            (session.user as { fullName: string | null }).fullName = (token.fullName as string | undefined) ?? null;
+            (session.user as { role: Role }).role = token.role as Role;
             return session;
         },
     },

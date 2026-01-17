@@ -16,7 +16,6 @@ import {
     BarChart3,
     FileText,
     Menu,
-    X,
     UtensilsCrossed,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -37,70 +36,62 @@ const iconMap: Record<string, React.ElementType> = {
 };
 
 interface SidebarProps {
-    role: Role;
+    userRole: Role;
 }
 
-function SidebarContent({ role }: SidebarProps) {
+function SidebarContent({ userRole }: SidebarProps) {
     const pathname = usePathname();
-    const navItems = NAV_ITEMS[role];
+
+    // Get nav items for this role
+    const navItems = NAV_ITEMS[userRole] || [];
 
     return (
         <div className="flex h-full flex-col">
             {/* Logo */}
-            <div className="flex h-16 items-center border-b px-6">
+            <div className="border-b px-6 py-4">
                 <Link href="/dashboard" className="flex items-center gap-2">
-                    <UtensilsCrossed className="h-6 w-6 text-orange-600" />
-                    <span className="text-xl font-bold bg-gradient-to-r from-orange-500 to-red-500 bg-clip-text text-transparent">
-                        Burger Bangor
-                    </span>
+                    <UtensilsCrossed className="h-8 w-8 text-orange-500" />
+                    <span className="font-bold text-xl tracking-tight">Burger Bangor</span>
                 </Link>
             </div>
 
-            {/* Navigation */}
+            {/* Nav Items */}
             <ScrollArea className="flex-1 px-3 py-4">
-                <nav className="flex flex-col gap-1">
+                <div className="space-y-1">
                     {navItems.map((item) => {
-                        const Icon = iconMap[item.icon];
-                        const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
+                        const Icon = iconMap[item.icon] || LayoutDashboard;
+                        const isActive = pathname === item.href;
 
                         return (
-                            <Link
-                                key={item.href}
-                                href={item.href}
-                                className={cn(
-                                    "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all",
-                                    isActive
-                                        ? "bg-orange-500 text-white shadow-lg shadow-orange-500/25"
-                                        : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                                )}
-                            >
-                                {Icon && <Icon className="h-5 w-5" />}
-                                {item.label}
+                            <Link key={item.href} href={item.href}>
+                                <Button
+                                    variant={isActive ? "secondary" : "ghost"}
+                                    className={cn(
+                                        "w-full justify-start gap-3 h-10",
+                                        isActive && "bg-orange-100 dark:bg-orange-900/20 text-orange-700 dark:text-orange-300 font-medium"
+                                    )}
+                                >
+                                    <Icon className={cn("h-4 w-4", isActive && "text-orange-600")} />
+                                    {item.label}
+                                </Button>
                             </Link>
                         );
                     })}
-                </nav>
+                </div>
             </ScrollArea>
-
-            {/* Footer */}
-            <div className="border-t p-4">
-                <p className="text-xs text-muted-foreground text-center">
-                    POS System v1.0
-                </p>
-            </div>
         </div>
     );
 }
 
-export function Sidebar({ role }: SidebarProps) {
+export function Sidebar({ userRole }: SidebarProps) {
     return (
-        <aside className="hidden lg:flex h-screen w-64 flex-col border-r bg-card fixed left-0 top-0">
-            <SidebarContent role={role} />
+        <aside className="hidden lg:flex w-64 flex-col border-r bg-background fixed inset-y-0 left-0 z-50">
+            <SidebarContent userRole={userRole} />
         </aside>
     );
 }
 
-export function MobileSidebar({ role }: SidebarProps) {
+export function MobileSidebar({ userRole }: SidebarProps) {
     const [open, setOpen] = useState(false);
 
     return (
@@ -108,11 +99,10 @@ export function MobileSidebar({ role }: SidebarProps) {
             <SheetTrigger asChild>
                 <Button variant="ghost" size="icon" className="lg:hidden">
                     <Menu className="h-5 w-5" />
-                    <span className="sr-only">Toggle menu</span>
                 </Button>
             </SheetTrigger>
-            <SheetContent side="left" className="w-64 p-0">
-                <SidebarContent role={role} />
+            <SheetContent side="left" className="p-0 w-64">
+                <SidebarContent userRole={userRole} />
             </SheetContent>
         </Sheet>
     );

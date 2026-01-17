@@ -6,7 +6,6 @@ import {
     FileText,
     UtensilsCrossed,
     ChefHat,
-    Users,
     TrendingUp,
     AlertTriangle,
     ArrowRight,
@@ -15,8 +14,8 @@ import {
 import Link from "next/link";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { transactions, inventory, recipes, products } from "@/db/schema";
-import { sql, count, sum, desc, lt, eq } from "drizzle-orm";
+import { transactions, inventory } from "@/db/schema";
+import { sql, count, sum, lt } from "drizzle-orm";
 
 export default async function DashboardPage() {
     const session = await auth();

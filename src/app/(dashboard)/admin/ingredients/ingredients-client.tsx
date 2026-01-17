@@ -29,7 +29,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
-import { Plus, Pencil, Trash2, Loader2, Salad } from "lucide-react";
+import { Plus, Trash2, Loader2, Salad } from "lucide-react";
 import { createIngredient, deleteIngredient } from "@/actions/ingredients";
 import { toast } from "sonner";
 import type { Ingredient } from "@/db/schema";
@@ -145,7 +145,7 @@ export default function IngredientsClient({ ingredients }: IngredientsClientProp
                 <div className="text-center py-12 text-muted-foreground">
                     <Salad className="h-12 w-12 mx-auto mb-4 opacity-20" />
                     <p>Belum ada bahan baku.</p>
-                    <p className="text-sm">Klik tombol "Tambah Bahan" untuk memulai.</p>
+                    <p className="text-sm">Klik tombol &quot;Tambah Bahan&quot; untuk memulai.</p>
                 </div>
             ) : (
                 <Table>

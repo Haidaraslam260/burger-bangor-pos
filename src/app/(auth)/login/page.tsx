@@ -95,7 +95,6 @@ export default function LoginPage() {
                                 id="email"
                                 name="email"
                                 type="email"
-                                placeholder="nama@burgerbangor.id"
                                 required
                                 className="h-11"
                             />

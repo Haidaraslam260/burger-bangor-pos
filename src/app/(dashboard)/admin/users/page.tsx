@@ -1,8 +1,25 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Plus } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { users } from "@/db/schema";
+import { auth } from "@/lib/auth";
+import { db } from "@/lib/db";
+import { Users } from "lucide-react";
+import UsersClient from "./users-client";
 
-export default function UsersPage() {
+export default async function UsersPage() {
+    const session = await auth();
+    const userList = await db
+        .select({
+            id: users.id,
+            email: users.email,
+            fullName: users.fullName,
+            role: users.role,
+            createdAt: users.createdAt,
+            updatedAt: users.updatedAt,
+        })
+        .from(users)
+        .orderBy(users.createdAt);
+
     return (
         <div className="space-y-6">
             <div className="flex items-center justify-between">
@@ -10,21 +27,23 @@ export default function UsersPage() {
                     <h1 className="text-3xl font-bold tracking-tight">Pengguna</h1>
                     <p className="text-muted-foreground">Kelola akun kasir, manager, dan admin</p>
                 </div>
-                <Button className="bg-orange-500 hover:bg-orange-600">
-                    <Plus className="h-4 w-4 mr-2" />
-                    Tambah User
-                </Button>
             </div>
 
             <Card>
                 <CardHeader>
-                    <CardTitle>Daftar Pengguna</CardTitle>
+                    <div className="flex items-center justify-between">
+                        <CardTitle className="flex items-center gap-2">
+                            <Users className="h-5 w-5" />
+                            Daftar Pengguna
+                        </CardTitle>
+                        <Badge variant="secondary">{userList.length} user</Badge>
+                    </div>
                 </CardHeader>
                 <CardContent>
-                    <div className="text-center py-12 text-muted-foreground">
-                        <p>Tabel pengguna akan ditampilkan di sini.</p>
-                        <p className="text-sm">Fitur CRUD user dengan role dalam pengembangan.</p>
-                    </div>
+                    <UsersClient
+                        users={userList}
+                        currentUserId={session?.user.id ?? ""}
+                    />
                 </CardContent>
             </Card>
         </div>

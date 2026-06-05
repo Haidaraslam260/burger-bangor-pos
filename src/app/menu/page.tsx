@@ -1,10 +1,18 @@
 import { db } from "@/lib/db";
 import { inventory, products, recipes } from "@/db/schema";
 import { and, eq, gte, inArray, isNull, or } from "drizzle-orm";
-import POSClient from "./pos-client";
+import CustomerMenuClient from "./customer-menu-client";
 
-export default async function POSPage() {
-    // Fetch active products only
+export const dynamic = "force-dynamic";
+
+export default async function CustomerMenuPage({
+    searchParams,
+}: {
+    searchParams: Promise<{ table?: string }>;
+}) {
+    const params = await searchParams;
+    const tableNumber = typeof params.table === "string" ? params.table : "";
+
     const activeProducts = await db
         .select()
         .from(products)
@@ -52,5 +60,11 @@ export default async function POSPage() {
         );
     }
 
-    return <POSClient products={activeProducts} availabilityByProductId={availabilityByProductId} />;
+    return (
+        <CustomerMenuClient
+            products={activeProducts}
+            availabilityByProductId={availabilityByProductId}
+            initialTableNumber={tableNumber}
+        />
+    );
 }

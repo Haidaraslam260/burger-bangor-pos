@@ -14,8 +14,8 @@ import {
 import Link from "next/link";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { transactions, inventory } from "@/db/schema";
-import { sql, count, sum, lt } from "drizzle-orm";
+import { transactions, inventory, ingredients } from "@/db/schema";
+import { and, count, sum, eq, gte, lt } from "drizzle-orm";
 
 export default async function DashboardPage() {
     const session = await auth();
@@ -24,28 +24,56 @@ export default async function DashboardPage() {
     // Real Data Fetching
     const today = new Date();
     today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
 
     // 1. Total Sales Today
     const [salesResult] = await db
         .select({ total: sum(transactions.totalAmount) })
         .from(transactions)
-        .where(sql`DATE(${transactions.transactionDate}) = DATE('now')`);
+        .where(and(
+            gte(transactions.transactionDate, today),
+            lt(transactions.transactionDate, tomorrow),
+            eq(transactions.status, "completed")
+        ));
 
     const totalSales = Number(salesResult?.total) || 0;
 
-    // 2. Low Stock Items (Stock < 10)
-    const [lowStockResult] = await db
-        .select({ count: count() })
+    // 2. Low Stock Ingredients (total stock per ingredient < configured minimum)
+    const stockRows = await db
+        .select({
+            ingredientId: inventory.ingredientId,
+            stockQuantity: inventory.stockQuantity,
+            minStockThreshold: ingredients.minStockThreshold,
+        })
         .from(inventory)
-        .where(lt(inventory.stockQuantity, 10));
+        .innerJoin(ingredients, eq(inventory.ingredientId, ingredients.id));
 
-    const lowStockCount = lowStockResult?.count || 0;
+    const stockByIngredient = new Map<number, { totalStock: number; minStockThreshold: number }>();
+    for (const row of stockRows) {
+        const current = stockByIngredient.get(row.ingredientId) ?? {
+            totalStock: 0,
+            minStockThreshold: row.minStockThreshold,
+        };
+
+        current.totalStock += row.stockQuantity;
+        current.minStockThreshold = row.minStockThreshold;
+        stockByIngredient.set(row.ingredientId, current);
+    }
+
+    const lowStockCount = Array.from(stockByIngredient.values()).filter(
+        (item) => item.totalStock < item.minStockThreshold
+    ).length;
 
     // 3. Total Transactions Today
     const [trxCountResult] = await db
         .select({ count: count() })
         .from(transactions)
-        .where(sql`DATE(${transactions.transactionDate}) = DATE('now')`);
+        .where(and(
+            gte(transactions.transactionDate, today),
+            lt(transactions.transactionDate, tomorrow),
+            eq(transactions.status, "completed")
+        ));
 
     const totalTrx = trxCountResult?.count || 0;
 
@@ -65,8 +93,8 @@ export default async function DashboardPage() {
             description: "Tambah atau update produk",
             icon: UtensilsCrossed,
             href: "/admin/products",
-            color: "text-orange-600",
-            bg: "bg-orange-100 dark:bg-orange-900/20",
+            color: "text-[#6f9900]",
+            bg: "bg-[#F1FFD0] dark:bg-[#A3DF02]/20",
             roles: ["admin"],
         },
         {

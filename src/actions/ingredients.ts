@@ -24,6 +24,7 @@ export async function createIngredient(
         const rawData = {
             name: formData.get("name"),
             unit: formData.get("unit"),
+            minStockThreshold: formData.get("minStockThreshold") || 10,
         };
 
         const validationResult = ingredientSchema.safeParse(rawData);
@@ -40,17 +41,15 @@ export async function createIngredient(
             .values({
                 name: validationResult.data.name,
                 unit: validationResult.data.unit,
+                minStockThreshold: validationResult.data.minStockThreshold,
             })
             .returning();
-
-        // Auto-create inventory entry with 0 stock
-        const farFuture = new Date();
-        farFuture.setFullYear(farFuture.getFullYear() + 10);
 
         await db.insert(inventory).values({
             ingredientId: newIngredient.id,
             stockQuantity: 0,
-            expiryDate: farFuture.toISOString().split("T")[0],
+            unitCost: "0",
+            notes: "Initial stock placeholder",
         });
 
         await db.insert(activityLogs).values({
@@ -63,6 +62,7 @@ export async function createIngredient(
 
         revalidatePath("/admin/ingredients");
         revalidatePath("/manager/inventory");
+        revalidatePath("/manager/logs");
         return { success: true, message: "Bahan berhasil ditambahkan!", data: newIngredient };
     } catch (error) {
         console.error("Create ingredient error:", error);
@@ -87,6 +87,7 @@ export async function updateIngredient(
         const rawData = {
             name: formData.get("name"),
             unit: formData.get("unit"),
+            minStockThreshold: formData.get("minStockThreshold") || 10,
         };
 
         const validationResult = ingredientSchema.safeParse(rawData);
@@ -102,6 +103,7 @@ export async function updateIngredient(
             .set({
                 name: validationResult.data.name,
                 unit: validationResult.data.unit,
+                minStockThreshold: validationResult.data.minStockThreshold,
                 updatedAt: new Date(),
             })
             .where(eq(ingredients.id, ingredientId))
@@ -117,6 +119,7 @@ export async function updateIngredient(
 
         revalidatePath("/admin/ingredients");
         revalidatePath("/manager/inventory");
+        revalidatePath("/manager/logs");
         return { success: true, message: "Bahan berhasil diupdate!" };
     } catch (error) {
         console.error("Update ingredient error:", error);
@@ -149,6 +152,7 @@ export async function deleteIngredient(ingredientId: number): Promise<ActionResu
 
         revalidatePath("/admin/ingredients");
         revalidatePath("/manager/inventory");
+        revalidatePath("/manager/logs");
         return { success: true, message: "Bahan berhasil dihapus!" };
     } catch (error) {
         console.error("Delete ingredient error:", error);

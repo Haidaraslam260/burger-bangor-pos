@@ -99,7 +99,7 @@ export default function RecipesClient({ products, ingredients, recipesByProduct 
                                         variant={isEditing ? "default" : "outline"}
                                         size="sm"
                                         onClick={() => setEditingProduct(isEditing ? null : product.id)}
-                                        className={isEditing ? "bg-orange-500 hover:bg-orange-600" : ""}
+                                        className={isEditing ? "bg-[#A3DF02] text-black hover:bg-[#92c902]" : ""}
                                     >
                                         {isEditing ? "Tutup" : "Edit"}
                                     </Button>
@@ -172,7 +172,7 @@ export default function RecipesClient({ products, ingredients, recipesByProduct 
                                                 />
                                                 <Button
                                                     size="sm"
-                                                    className="h-9 bg-orange-500 hover:bg-orange-600"
+                                                    className="h-9 bg-[#A3DF02] text-black hover:bg-[#92c902]"
                                                     onClick={() => handleAddRecipeItem(product.id)}
                                                     disabled={isPending}
                                                 >

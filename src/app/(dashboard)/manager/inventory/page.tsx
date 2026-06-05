@@ -2,25 +2,78 @@ import { Badge } from "@/components/ui/badge";
 import { Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { db } from "@/lib/db";
-import { inventory, ingredients } from "@/db/schema";
+import { inventory, ingredients, suppliers } from "@/db/schema";
 import { eq, asc } from "drizzle-orm";
 import InventoryClient from "./inventory-client";
 
 export default async function InventoryPage() {
-    // Fetch inventory joined with ingredients (1:1 relationship)
-    const inventoryItems = await db
+    const rows = await db
         .select({
             id: inventory.id,
             ingredientId: inventory.ingredientId,
             stockQuantity: inventory.stockQuantity,
+            receivedDate: inventory.receivedDate,
+            expiryDate: inventory.expiryDate,
+            notes: inventory.notes,
             name: ingredients.name,
             unit: ingredients.unit,
+            minStockThreshold: ingredients.minStockThreshold,
+            supplierName: suppliers.name,
         })
         .from(inventory)
         .innerJoin(ingredients, eq(inventory.ingredientId, ingredients.id))
+        .leftJoin(suppliers, eq(inventory.supplierId, suppliers.id))
         .orderBy(asc(ingredients.name));
 
-    const lowStockThreshold = 50;
+    const itemsByIngredient = new Map<number, {
+        ingredientId: number;
+        name: string;
+        unit: string;
+        minStockThreshold: number;
+        totalStock: number;
+        nearestExpiryDate: string | null;
+        batches: {
+            id: number;
+            stockQuantity: number;
+            receivedDate: string;
+            expiryDate: string | null;
+            supplierName: string | null;
+            notes: string | null;
+        }[];
+    }>();
+
+    for (const row of rows) {
+        const existing = itemsByIngredient.get(row.ingredientId) ?? {
+            ingredientId: row.ingredientId,
+            name: row.name,
+            unit: row.unit,
+            minStockThreshold: row.minStockThreshold,
+            totalStock: 0,
+            nearestExpiryDate: null,
+            batches: [],
+        };
+
+        existing.totalStock += row.stockQuantity;
+
+        if (row.stockQuantity > 0 && row.expiryDate) {
+            if (!existing.nearestExpiryDate || row.expiryDate < existing.nearestExpiryDate) {
+                existing.nearestExpiryDate = row.expiryDate;
+            }
+        }
+
+        existing.batches.push({
+            id: row.id,
+            stockQuantity: row.stockQuantity,
+            receivedDate: row.receivedDate,
+            expiryDate: row.expiryDate,
+            supplierName: row.supplierName,
+            notes: row.notes,
+        });
+
+        itemsByIngredient.set(row.ingredientId, existing);
+    }
+
+    const inventoryItems = Array.from(itemsByIngredient.values());
 
     return (
         <div className="space-y-6">
@@ -46,7 +99,6 @@ export default async function InventoryPage() {
             {/* Inventory Client Component */}
             <InventoryClient
                 inventoryItems={inventoryItems}
-                lowStockThreshold={lowStockThreshold}
             />
         </div>
     );

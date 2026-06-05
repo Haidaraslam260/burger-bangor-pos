@@ -123,3 +123,36 @@
     @apply bg-background text-foreground;
   }
 }
+
+@media print {
+  @page {
+    size: 80mm auto;
+    margin: 4mm;
+  }
+
+  body * {
+    visibility: hidden;
+  }
+
+  #receipt-print-area,
+  #receipt-print-area * {
+    visibility: visible;
+  }
+
+  #receipt-print-area {
+    position: absolute;
+    inset: 0 auto auto 0;
+    width: 72mm;
+    max-width: 72mm;
+    border: 0;
+    border-radius: 0;
+    padding: 0;
+    color: #000;
+    background: #fff;
+    box-shadow: none;
+  }
+
+  .receipt-print-actions {
+    display: none !important;
+  }
+}

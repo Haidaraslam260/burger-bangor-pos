@@ -53,7 +53,7 @@ export function Header({ user }: HeaderProps) {
         : user.email[0].toUpperCase();
 
     return (
-        <header className="sticky top-0 z-40 flex h-16 items-center gap-4 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-4 lg:px-6">
+        <header className="sticky top-0 z-40 flex h-20 items-center gap-4 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-4 lg:px-6">
             <MobileSidebar userRole={user.role} />
 
             <div className="flex-1" />
@@ -72,7 +72,7 @@ export function Header({ user }: HeaderProps) {
                     <DropdownMenuTrigger asChild>
                         <Button variant="ghost" className="relative h-10 w-10 rounded-full">
                             <Avatar className="h-10 w-10">
-                                <AvatarFallback className="bg-orange-500 text-white">
+                                <AvatarFallback className="bg-[#A3DF02] text-black">
                                     {initials}
                                 </AvatarFallback>
                             </Avatar>

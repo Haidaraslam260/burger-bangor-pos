@@ -7,12 +7,13 @@ import {
     transactionItems,
     inventory,
     recipes,
-    products,
+    ingredients,
     activityLogs,
 } from "@/db/schema";
-import { eq, asc, inArray } from "drizzle-orm";
+import { and, eq, asc, gte, inArray, isNull, or } from "drizzle-orm";
 import { checkoutSchema } from "@/lib/validations";
 import type { CheckoutResult, RequiredIngredient } from "@/types";
+import { revalidatePath } from "next/cache";
 
 /**
  * Checkout Server Action
@@ -52,10 +53,26 @@ export async function checkout(
             };
         }
 
-        const { items, type, customerName, notes } = validationResult.data;
+        const {
+            items,
+            type,
+            subtotalAmount,
+            discountAmount,
+            taxAmount,
+            serviceChargeAmount,
+            roundingAmount,
+            totalAmount,
+            promoCode,
+            paymentMethod,
+            amountPaid,
+            paymentStatus,
+            customerName,
+            notes,
+        } = validationResult.data;
 
-        // 3. Calculate total
-        const totalAmount = items.reduce((sum, item) => sum + item.subtotal, 0);
+        // 3. Calculate payment change from final total
+        const changeAmount = paymentMethod === "cash" ? amountPaid - totalAmount : 0;
+        const today = new Date().toISOString().split("T")[0];
 
         // 4. Execute in transaction
         const result = await db.transaction(async (tx) => {
@@ -94,7 +111,10 @@ export async function checkout(
                 const stocks = await tx
                     .select()
                     .from(inventory)
-                    .where(eq(inventory.ingredientId, ingredientId))
+                    .where(and(
+                        eq(inventory.ingredientId, ingredientId),
+                        or(isNull(inventory.expiryDate), gte(inventory.expiryDate, today))
+                    ))
                     .orderBy(asc(inventory.expiryDate));
 
                 const totalAvailable = stocks.reduce(
@@ -138,7 +158,17 @@ export async function checkout(
                 .insert(transactions)
                 .values({
                     type,
+                    subtotalAmount: subtotalAmount.toString(),
+                    discountAmount: discountAmount.toString(),
+                    taxAmount: taxAmount.toString(),
+                    serviceChargeAmount: serviceChargeAmount.toString(),
+                    roundingAmount: roundingAmount.toString(),
                     totalAmount: totalAmount.toString(),
+                    promoCode: promoCode || null,
+                    paymentMethod,
+                    amountPaid: amountPaid.toString(),
+                    changeAmount: changeAmount.toString(),
+                    paymentStatus,
                     cashierId: session.user.id,
                     customerName,
                     notes,
@@ -165,13 +195,29 @@ export async function checkout(
                 details: JSON.stringify({
                     type,
                     itemCount: items.length,
+                    subtotalAmount,
+                    discountAmount,
+                    taxAmount,
+                    serviceChargeAmount,
+                    roundingAmount,
                     totalAmount,
+                    promoCode,
+                    paymentMethod,
+                    amountPaid,
+                    changeAmount,
+                    paymentStatus,
                     customerName,
                 }),
             });
 
             return newTransaction;
         });
+
+        revalidatePath("/manager/logs");
+        revalidatePath("/manager/inventory");
+        revalidatePath("/admin/ingredients");
+        revalidatePath("/pos");
+        revalidatePath("/dashboard");
 
         return {
             success: true,
@@ -196,6 +242,7 @@ export async function checkStockAvailability(
 ): Promise<{ available: boolean; details: RequiredIngredient[] }> {
     try {
         const productIds = items.map((item) => item.productId);
+        const today = new Date().toISOString().split("T")[0];
 
         // Get recipes for all products
         const allRecipes = await db
@@ -203,10 +250,10 @@ export async function checkStockAvailability(
                 productId: recipes.productId,
                 ingredientId: recipes.ingredientId,
                 quantityNeeded: recipes.quantityNeeded,
-                ingredientName: products.name,
+                ingredientName: ingredients.name,
             })
             .from(recipes)
-            .leftJoin(products, eq(recipes.ingredientId, products.id))
+            .leftJoin(ingredients, eq(recipes.ingredientId, ingredients.id))
             .where(inArray(recipes.productId, productIds));
 
         // Calculate required ingredients
@@ -240,7 +287,10 @@ export async function checkStockAvailability(
             const stocks = await db
                 .select()
                 .from(inventory)
-                .where(eq(inventory.ingredientId, ingredientId));
+                .where(and(
+                    eq(inventory.ingredientId, ingredientId),
+                    or(isNull(inventory.expiryDate), gte(inventory.expiryDate, today))
+                ));
 
             const totalAvailable = stocks.reduce(
                 (sum, stock) => sum + stock.stockQuantity,

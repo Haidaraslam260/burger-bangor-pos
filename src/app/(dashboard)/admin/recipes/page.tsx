@@ -45,7 +45,7 @@ export default async function RecipesPage() {
                 <CardContent className="pt-6">
                     <div className="flex items-center justify-between mb-6">
                         <div className="flex items-center gap-2">
-                            <ChefHat className="h-5 w-5 text-orange-500" />
+                            <ChefHat className="h-5 w-5 text-[#A3DF02]" />
                             <h2 className="font-semibold">Daftar Resep Produk</h2>
                         </div>
                         <Badge variant="secondary">{productList.length} produk</Badge>

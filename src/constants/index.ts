@@ -53,9 +53,11 @@ export const NAV_ITEMS = {
     admin: [
         { label: "Dashboard", href: "/dashboard", icon: "LayoutDashboard" },
         { label: "Point of Sales", href: "/pos", icon: "ShoppingCart" },
+        { label: "Pesanan Meja", href: "/pos/orders", icon: "ClipboardList" },
         { label: "Products", href: "/admin/products", icon: "Package" },
         { label: "Ingredients", href: "/admin/ingredients", icon: "Salad" },
         { label: "Recipes", href: "/admin/recipes", icon: "ChefHat" },
+        { label: "Tables", href: "/admin/tables", icon: "Armchair" },
         { label: "Users", href: "/admin/users", icon: "Users" },
         { label: "Inventory", href: "/manager/inventory", icon: "Warehouse" },
         { label: "Reports", href: "/manager/reports", icon: "BarChart3" },
@@ -64,12 +66,14 @@ export const NAV_ITEMS = {
     manager: [
         { label: "Dashboard", href: "/dashboard", icon: "LayoutDashboard" },
         { label: "Point of Sales", href: "/pos", icon: "ShoppingCart" },
+        { label: "Pesanan Meja", href: "/pos/orders", icon: "ClipboardList" },
         { label: "Inventory", href: "/manager/inventory", icon: "Warehouse" },
         { label: "Reports", href: "/manager/reports", icon: "BarChart3" },
         { label: "Activity Logs", href: "/manager/logs", icon: "FileText" },
     ],
     kasir: [
         { label: "Point of Sales", href: "/pos", icon: "ShoppingCart" },
+        { label: "Pesanan Meja", href: "/pos/orders", icon: "ClipboardList" },
     ],
 } as const;
 
@@ -117,6 +121,38 @@ export const INGREDIENT_UNITS = [
     "Sachet",
     "Pack",
 ] as const;
+
+// ===========================================
+// PAYMENT METHODS
+// ===========================================
+export const PAYMENT_METHODS = [
+    { value: "cash", label: "Cash" },
+    { value: "qris", label: "QRIS" },
+    { value: "debit", label: "Debit" },
+    { value: "e_wallet", label: "E-Wallet" },
+] as const;
+
+export const PAYMENT_METHOD_LABELS = {
+    cash: "Cash",
+    qris: "QRIS",
+    debit: "Debit",
+    e_wallet: "E-Wallet",
+} as const;
+
+export const PAYMENT_STATUS_LABELS = {
+    paid: "Lunas",
+    pending: "Pending",
+    failed: "Gagal",
+    voided: "Void",
+    refunded: "Refund",
+} as const;
+
+export const TRANSACTION_STATUS_LABELS = {
+    pending: "Menunggu",
+    completed: "Selesai",
+    voided: "Void",
+    refunded: "Refund",
+} as const;
 
 // ===========================================
 // FORMAT HELPERS

@@ -20,6 +20,9 @@
 # production
 /build
 
+# local uploaded files; production uploads use Supabase Storage
+/public/uploads/
+
 # misc
 .DS_Store
 *.pem

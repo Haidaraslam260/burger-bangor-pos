@@ -26,6 +26,7 @@ export async function createProduct(
             category: formData.get("category"),
             price: formData.get("price"),
             description: formData.get("description") || "",
+            imageUrl: formData.get("imageUrl") || "",
             isActive: formData.get("isActive") === "true" ? 1 : 0,
         };
 
@@ -44,6 +45,7 @@ export async function createProduct(
                 category: validationResult.data.category,
                 price: validationResult.data.price,
                 description: validationResult.data.description || null,
+                imageUrl: validationResult.data.imageUrl || null,
                 isActive: validationResult.data.isActive,
             })
             .returning();
@@ -57,6 +59,9 @@ export async function createProduct(
         });
 
         revalidatePath("/admin/products");
+        revalidatePath("/menu");
+        revalidatePath("/pos");
+        revalidatePath("/manager/logs");
         return { success: true, message: "Produk berhasil ditambahkan!", data: newProduct };
     } catch (error) {
         console.error("Create product error:", error);
@@ -83,6 +88,7 @@ export async function updateProduct(
             category: formData.get("category"),
             price: formData.get("price"),
             description: formData.get("description") || "",
+            imageUrl: formData.get("imageUrl") || "",
             isActive: formData.get("isActive") === "true" ? 1 : 0,
         };
 
@@ -101,6 +107,7 @@ export async function updateProduct(
                 category: validationResult.data.category,
                 price: validationResult.data.price,
                 description: validationResult.data.description || null,
+                imageUrl: validationResult.data.imageUrl || null,
                 isActive: validationResult.data.isActive,
                 updatedAt: new Date(),
             })
@@ -116,6 +123,9 @@ export async function updateProduct(
         });
 
         revalidatePath("/admin/products");
+        revalidatePath("/menu");
+        revalidatePath("/pos");
+        revalidatePath("/manager/logs");
         return { success: true, message: "Produk berhasil diupdate!" };
     } catch (error) {
         console.error("Update product error:", error);
@@ -124,33 +134,41 @@ export async function updateProduct(
 }
 
 /**
- * Delete a product
+ * Archive a product by marking it inactive without deleting historical references.
  */
-export async function deleteProduct(productId: number): Promise<ActionResult> {
+export async function archiveProduct(productId: number): Promise<ActionResult> {
     try {
         const session = await auth();
         if (!session?.user || session.user.role !== "admin") {
             return { success: false, error: "Unauthorized" };
         }
 
-        const [deletedProduct] = await db
-            .delete(products)
+        const [archivedProduct] = await db
+            .update(products)
+            .set({ isActive: 0, updatedAt: new Date() })
             .where(eq(products.id, productId))
             .returning();
 
+        if (!archivedProduct) {
+            return { success: false, error: "Produk tidak ditemukan" };
+        }
+
         await db.insert(activityLogs).values({
             userId: session.user.id,
-            action: "DELETE",
+            action: "UPDATE",
             tableName: "products",
             recordId: String(productId),
-            details: `Produk dihapus: ${deletedProduct.name}`,
+            details: `Produk diarsipkan: ${archivedProduct.name}`,
         });
 
         revalidatePath("/admin/products");
-        return { success: true, message: "Produk berhasil dihapus!" };
+        revalidatePath("/menu");
+        revalidatePath("/pos");
+        revalidatePath("/manager/logs");
+        return { success: true, message: "Produk berhasil diarsipkan!" };
     } catch (error) {
-        console.error("Delete product error:", error);
-        return { success: false, error: "Gagal menghapus produk" };
+        console.error("Archive product error:", error);
+        return { success: false, error: "Gagal mengarsipkan produk" };
     }
 }
 
@@ -171,7 +189,18 @@ export async function toggleProductStatus(productId: number, currentStatus: numb
             .set({ isActive: newStatus, updatedAt: new Date() })
             .where(eq(products.id, productId));
 
+        await db.insert(activityLogs).values({
+            userId: session.user.id,
+            action: "UPDATE",
+            tableName: "products",
+            recordId: String(productId),
+            details: `Status produk ${newStatus === 1 ? "diaktifkan" : "dinonaktifkan"}`,
+        });
+
         revalidatePath("/admin/products");
+        revalidatePath("/menu");
+        revalidatePath("/pos");
+        revalidatePath("/manager/logs");
         return { success: true, message: `Produk ${newStatus === 1 ? "diaktifkan" : "dinonaktifkan"}!` };
     } catch (error) {
         console.error("Toggle product status error:", error);

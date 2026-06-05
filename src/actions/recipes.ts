@@ -56,6 +56,7 @@ export async function upsertRecipeItem(
         });
 
         revalidatePath("/admin/recipes");
+        revalidatePath("/manager/logs");
         return { success: true, message: "Resep berhasil disimpan!" };
     } catch (error) {
         console.error("Upsert recipe error:", error);
@@ -84,6 +85,7 @@ export async function deleteRecipeItem(recipeId: number): Promise<ActionResult> 
         });
 
         revalidatePath("/admin/recipes");
+        revalidatePath("/manager/logs");
         return { success: true, message: "Item resep berhasil dihapus!" };
     } catch (error) {
         console.error("Delete recipe item error:", error);
@@ -127,6 +129,7 @@ export async function setProductRecipe(
         });
 
         revalidatePath("/admin/recipes");
+        revalidatePath("/manager/logs");
         return { success: true, message: "Resep berhasil diperbarui!" };
     } catch (error) {
         console.error("Set product recipe error:", error);

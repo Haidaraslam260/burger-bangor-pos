@@ -4,7 +4,7 @@ import { PROTECTED_ROUTES, DEFAULT_REDIRECT } from "@/constants";
 import type { Role } from "@/db/schema";
 
 // Routes yang tidak perlu auth
-const publicRoutes = ["/login", "/register", "/api/auth"];
+const publicRoutes = ["/login", "/register", "/api/auth", "/menu"];
 
 export default auth((req) => {
     const { nextUrl } = req;

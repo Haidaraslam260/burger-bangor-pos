@@ -35,9 +35,10 @@ import { toast } from "sonner";
 import type { Ingredient } from "@/db/schema";
 
 const UNIT_OPTIONS = ["Pcs", "Gram", "Ml", "Slice"];
+type IngredientWithStock = Ingredient & { totalStock: number };
 
 interface IngredientsClientProps {
-    ingredients: Ingredient[];
+    ingredients: IngredientWithStock[];
 }
 
 export default function IngredientsClient({ ingredients }: IngredientsClientProps) {
@@ -74,7 +75,7 @@ export default function IngredientsClient({ ingredients }: IngredientsClientProp
             {/* Add Ingredient Dialog */}
             <Dialog open={isOpen} onOpenChange={setIsOpen}>
                 <DialogTrigger asChild>
-                    <Button className="bg-orange-500 hover:bg-orange-600">
+                    <Button className="bg-[#A3DF02] text-black hover:bg-[#92c902]">
                         <Plus className="h-4 w-4 mr-2" />
                         Tambah Bahan
                     </Button>
@@ -104,11 +105,22 @@ export default function IngredientsClient({ ingredients }: IngredientsClientProp
                                 </SelectContent>
                             </Select>
                         </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="minStockThreshold">Minimum Stok</Label>
+                            <Input
+                                id="minStockThreshold"
+                                name="minStockThreshold"
+                                type="number"
+                                min="0"
+                                defaultValue="10"
+                                required
+                            />
+                        </div>
                         <DialogFooter>
                             <Button type="button" variant="outline" onClick={() => setIsOpen(false)}>
                                 Batal
                             </Button>
-                            <Button type="submit" disabled={isPending} className="bg-orange-500 hover:bg-orange-600">
+                            <Button type="submit" disabled={isPending} className="bg-[#A3DF02] text-black hover:bg-[#92c902]">
                                 {isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
                                 Simpan
                             </Button>
@@ -153,32 +165,50 @@ export default function IngredientsClient({ ingredients }: IngredientsClientProp
                         <TableRow>
                             <TableHead className="w-[50px]">ID</TableHead>
                             <TableHead>Nama Bahan</TableHead>
+                            <TableHead>Stok Sisa</TableHead>
                             <TableHead>Satuan</TableHead>
+                            <TableHead>Minimum Stok</TableHead>
+                            <TableHead>Status</TableHead>
                             <TableHead className="text-right">Aksi</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {ingredients.map((ingredient) => (
-                            <TableRow key={ingredient.id}>
-                                <TableCell className="font-mono text-muted-foreground">{ingredient.id}</TableCell>
-                                <TableCell className="font-medium">{ingredient.name}</TableCell>
-                                <TableCell>
-                                    <Badge variant="outline">{ingredient.unit}</Badge>
-                                </TableCell>
-                                <TableCell className="text-right">
-                                    <div className="flex justify-end gap-2">
-                                        <Button
-                                            variant="ghost"
-                                            size="icon"
-                                            className="h-8 w-8 text-red-500 hover:text-red-700 hover:bg-red-50"
-                                            onClick={() => setDeleteId(ingredient.id)}
-                                        >
-                                            <Trash2 className="h-4 w-4" />
-                                        </Button>
-                                    </div>
-                                </TableCell>
-                            </TableRow>
-                        ))}
+                        {ingredients.map((ingredient) => {
+                            const isLowStock = ingredient.totalStock < ingredient.minStockThreshold;
+
+                            return (
+                                <TableRow key={ingredient.id}>
+                                    <TableCell className="font-mono text-muted-foreground">{ingredient.id}</TableCell>
+                                    <TableCell className="font-medium">{ingredient.name}</TableCell>
+                                    <TableCell>
+                                        <span className={isLowStock ? "font-semibold text-red-600" : "font-semibold"}>
+                                            {ingredient.totalStock}
+                                        </span>
+                                    </TableCell>
+                                    <TableCell>
+                                        <Badge variant="outline">{ingredient.unit}</Badge>
+                                    </TableCell>
+                                    <TableCell>{ingredient.minStockThreshold}</TableCell>
+                                    <TableCell>
+                                        <Badge variant={isLowStock ? "destructive" : "secondary"}>
+                                            {isLowStock ? "Stok rendah" : "Aman"}
+                                        </Badge>
+                                    </TableCell>
+                                    <TableCell className="text-right">
+                                        <div className="flex justify-end gap-2">
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className="h-8 w-8 text-red-500 hover:text-red-700 hover:bg-red-50"
+                                                onClick={() => setDeleteId(ingredient.id)}
+                                            >
+                                                <Trash2 className="h-4 w-4" />
+                                            </Button>
+                                        </div>
+                                    </TableCell>
+                                </TableRow>
+                            );
+                        })}
                     </TableBody>
                 </Table>
             )}

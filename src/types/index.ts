@@ -1,4 +1,4 @@
-import type { Role, TransactionType } from "@/db/schema";
+import type { PaymentMethod, PaymentStatus, Role, TransactionType } from "@/db/schema";
 
 // ===========================================
 // CART TYPES
@@ -23,6 +23,17 @@ export interface Cart {
 export interface CheckoutInput {
     items: CartItem[];
     type: TransactionType;
+    subtotalAmount: number;
+    discountAmount: number;
+    taxAmount: number;
+    serviceChargeAmount: number;
+    roundingAmount: number;
+    totalAmount: number;
+    promoCode?: string;
+    paymentMethod: PaymentMethod;
+    amountPaid: number;
+    changeAmount: number;
+    paymentStatus: PaymentStatus;
     customerName?: string;
     notes?: string;
 }
@@ -45,7 +56,7 @@ export interface IngredientWithStock {
     inventoryItems: {
         id: number;
         stockQuantity: number;
-        expiryDate: string;
+        expiryDate: string | null;
     }[];
 }
 
@@ -99,7 +110,7 @@ export interface StockReport {
     isLowStock: boolean;
     expiringItems: {
         quantity: number;
-        expiryDate: string;
+        expiryDate: string | null;
         daysUntilExpiry: number;
     }[];
 }

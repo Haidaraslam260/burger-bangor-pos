@@ -8,13 +8,16 @@ import {
     transactionItems,
     activityLogs,
     restaurantTables,
-    recipes,
-    inventory,
 } from "@/db/schema";
-import { checkStockAvailability } from "@/actions/checkout";
-import { and, asc, eq, gte, inArray, isNull, or } from "drizzle-orm";
+import { and, asc, eq, inArray } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
-import type { PaymentMethod } from "@/db/schema";
+import type { PaymentMethod, PaymentStatus, TransactionStatus } from "@/db/schema";
+import {
+    assertStockCanBeReserved,
+    CUSTOMER_RESERVATION_MINUTES,
+    deductStockLocked,
+    getStockRequirements,
+} from "@/lib/stock-reservations";
 
 interface CustomerOrderItem {
     productId: number;
@@ -23,6 +26,8 @@ interface CustomerOrderItem {
 
 interface CreateCustomerOrderInput {
     tableNumber: string;
+    sessionToken: string;
+    idempotencyKey: string;
     customerName?: string;
     notes?: string;
     items: CustomerOrderItem[];
@@ -32,6 +37,9 @@ interface CreateCustomerOrderResult {
     success: boolean;
     message: string;
     orderId?: number;
+    orderToken?: string;
+    sessionToken?: string;
+    reservationExpiresAt?: string;
     error?: string;
 }
 
@@ -40,6 +48,32 @@ interface CompleteCustomerOrderResult {
     message: string;
     error?: string;
 }
+
+export interface CustomerOrderDetail {
+    id: number;
+    orderToken: string;
+    transactionDate: string;
+    status: TransactionStatus;
+    paymentStatus: PaymentStatus;
+    paymentMethod: PaymentMethod;
+    customerName: string | null;
+    notes: string | null;
+    subtotalAmount: number;
+    taxAmount: number;
+    roundingAmount: number;
+    totalAmount: number;
+    amountPaid: number;
+    changeAmount: number;
+    items: {
+        id: number;
+        productName: string;
+        quantity: number;
+        unitPrice: number;
+        subtotal: number;
+    }[];
+}
+
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 function parseOrderData(formData: FormData): CreateCustomerOrderInput | null {
     try {
@@ -63,6 +97,8 @@ export async function createCustomerOrder(formData: FormData): Promise<CreateCus
         }
 
         const tableNumber = normalizeTableNumber(data.tableNumber || "");
+        const sessionToken = String(data.sessionToken || "").trim();
+        const idempotencyKey = String(data.idempotencyKey || "").trim();
         const customerName = data.customerName?.trim().slice(0, 80) || null;
         const notes = data.notes?.trim().slice(0, 200) || null;
         const items = data.items
@@ -74,6 +110,24 @@ export async function createCustomerOrder(formData: FormData): Promise<CreateCus
 
         if (!tableNumber) {
             return { success: false, message: "Nomor meja wajib diisi", error: "Nomor meja wajib diisi" };
+        }
+        if (!UUID_PATTERN.test(sessionToken) || !UUID_PATTERN.test(idempotencyKey)) {
+            return { success: false, message: "Sesi pesanan tidak valid", error: "Muat ulang halaman lalu coba kembali" };
+        }
+
+        const [existingOrder] = await db
+            .select()
+            .from(transactions)
+            .where(eq(transactions.idempotencyKey, idempotencyKey));
+        if (existingOrder) {
+            return {
+                success: true,
+                orderId: existingOrder.id,
+                orderToken: existingOrder.orderToken,
+                sessionToken,
+                reservationExpiresAt: existingOrder.reservationExpiresAt?.toISOString(),
+                message: `Pesanan #${existingOrder.id} sudah diterima`,
+            };
         }
 
         const [activeTable] = await db
@@ -100,18 +154,6 @@ export async function createCustomerOrder(formData: FormData): Promise<CreateCus
             return { success: false, message: "Ada menu yang sudah tidak tersedia", error: "Silakan refresh halaman menu" };
         }
 
-        const stockCheck = await checkStockAvailability(items);
-        if (!stockCheck.available) {
-            const unavailable = stockCheck.details.find((detail) => !detail.isAvailable);
-            return {
-                success: false,
-                message: unavailable
-                    ? `${unavailable.ingredientName} tidak cukup untuk pesanan ini`
-                    : "Stok menu tidak cukup",
-                error: "Stok tidak cukup",
-            };
-        }
-
         const orderItems = items.map((item) => {
             const product = productById.get(item.productId);
             if (!product) throw new Error("Produk tidak ditemukan");
@@ -130,10 +172,18 @@ export async function createCustomerOrder(formData: FormData): Promise<CreateCus
         const roundingAmount = Math.round(totalBeforeRounding / 100) * 100 - totalBeforeRounding;
         const totalAmount = totalBeforeRounding + roundingAmount;
 
+        const reservationExpiresAt = new Date(Date.now() + CUSTOMER_RESERVATION_MINUTES * 60_000);
         const [newOrder] = await db.transaction(async (tx) => {
+            const requirements = await getStockRequirements(tx, items);
+            await assertStockCanBeReserved(tx, requirements);
+
             const [transaction] = await tx
                 .insert(transactions)
                 .values({
+                    restaurantTableId: activeTable.id,
+                    customerSessionToken: sessionToken,
+                    idempotencyKey,
+                    reservationExpiresAt,
                     type: "dine_in",
                     status: "pending",
                     subtotalAmount: subtotalAmount.toString(),
@@ -167,6 +217,7 @@ export async function createCustomerOrder(formData: FormData): Promise<CreateCus
                 recordId: String(transaction.id),
                 details: JSON.stringify({
                     tableNumber,
+                    sessionToken,
                     customerName,
                     itemCount: orderItems.reduce((sum, item) => sum + item.quantity, 0),
                     subtotalAmount,
@@ -174,6 +225,7 @@ export async function createCustomerOrder(formData: FormData): Promise<CreateCus
                     roundingAmount,
                     totalAmount,
                     paymentStatus: "pending",
+                    reservationExpiresAt: reservationExpiresAt.toISOString(),
                 }),
             });
 
@@ -187,10 +239,31 @@ export async function createCustomerOrder(formData: FormData): Promise<CreateCus
         return {
             success: true,
             orderId: newOrder.id,
+            orderToken: newOrder.orderToken,
+            sessionToken,
+            reservationExpiresAt: reservationExpiresAt.toISOString(),
             message: `Pesanan #${newOrder.id} berhasil dikirim ke kasir`,
         };
     } catch (error) {
         console.error("Create customer order error:", error);
+        const data = parseOrderData(formData);
+        const idempotencyKey = data?.idempotencyKey?.trim();
+        if (idempotencyKey && UUID_PATTERN.test(idempotencyKey)) {
+            const [existingOrder] = await db
+                .select()
+                .from(transactions)
+                .where(eq(transactions.idempotencyKey, idempotencyKey));
+            if (existingOrder) {
+                return {
+                    success: true,
+                    orderId: existingOrder.id,
+                    orderToken: existingOrder.orderToken,
+                    sessionToken: existingOrder.customerSessionToken ?? undefined,
+                    reservationExpiresAt: existingOrder.reservationExpiresAt?.toISOString(),
+                    message: `Pesanan #${existingOrder.id} sudah diterima`,
+                };
+            }
+        }
         return {
             success: false,
             message: "Gagal mengirim pesanan",
@@ -199,52 +272,97 @@ export async function createCustomerOrder(formData: FormData): Promise<CreateCus
     }
 }
 
-async function deductIngredientsForItems(
-    tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
-    items: { productId: number; quantity: number }[]
-) {
-    const productIds = [...new Set(items.map((item) => item.productId))];
-    const allRecipes = productIds.length > 0
-        ? await tx.select().from(recipes).where(inArray(recipes.productId, productIds))
-        : [];
-
-    const requiredIngredients = new Map<number, number>();
-    for (const item of items) {
-        const productRecipes = allRecipes.filter((recipe) => recipe.productId === item.productId);
-        for (const recipe of productRecipes) {
-            requiredIngredients.set(
-                recipe.ingredientId,
-                (requiredIngredients.get(recipe.ingredientId) ?? 0) + recipe.quantityNeeded * item.quantity
-            );
+export async function getCustomerSessionOrders(sessionToken: string, tableNumber: string): Promise<{
+    success: boolean;
+    orders?: CustomerOrderDetail[];
+    error?: string;
+}> {
+    try {
+        const normalizedTableNumber = normalizeTableNumber(tableNumber || "");
+        if (!UUID_PATTERN.test(sessionToken) || !normalizedTableNumber) {
+            return { success: false, error: "Data pesanan tidak valid" };
         }
-    }
 
-    const today = new Date().toISOString().split("T")[0];
-    for (const [ingredientId, needed] of requiredIngredients) {
-        const stocks = await tx
+        const [table] = await db
             .select()
-            .from(inventory)
+            .from(restaurantTables)
+            .where(eq(restaurantTables.tableNumber, normalizedTableNumber));
+        if (!table) return { success: false, error: "Meja tidak ditemukan" };
+
+        const rows = await db
+            .select({
+                transactionId: transactions.id,
+                orderToken: transactions.orderToken,
+                transactionDate: transactions.transactionDate,
+                status: transactions.status,
+                paymentStatus: transactions.paymentStatus,
+                paymentMethod: transactions.paymentMethod,
+                customerName: transactions.customerName,
+                notes: transactions.notes,
+                subtotalAmount: transactions.subtotalAmount,
+                taxAmount: transactions.taxAmount,
+                roundingAmount: transactions.roundingAmount,
+                totalAmount: transactions.totalAmount,
+                amountPaid: transactions.amountPaid,
+                changeAmount: transactions.changeAmount,
+                itemId: transactionItems.id,
+                productName: products.name,
+                quantity: transactionItems.quantity,
+                unitPrice: transactionItems.unitPrice,
+                itemSubtotal: transactionItems.subtotal,
+            })
+            .from(transactions)
+            .innerJoin(transactionItems, eq(transactionItems.transactionId, transactions.id))
+            .innerJoin(products, eq(products.id, transactionItems.productId))
             .where(and(
-                eq(inventory.ingredientId, ingredientId),
-                or(isNull(inventory.expiryDate), gte(inventory.expiryDate, today))
+                eq(transactions.customerSessionToken, sessionToken),
+                eq(transactions.restaurantTableId, table.id)
             ))
-            .orderBy(asc(inventory.expiryDate), asc(inventory.id));
+            .orderBy(asc(transactions.transactionDate), asc(transactionItems.id));
 
-        const totalAvailable = stocks.reduce((sum, stock) => sum + stock.stockQuantity, 0);
-        if (totalAvailable < needed) {
-            throw new Error(`Stok bahan tidak cukup. Dibutuhkan ${needed}, tersedia ${totalAvailable}.`);
+        if (rows.length === 0) {
+            return { success: true, orders: [] };
         }
 
-        let remaining = needed;
-        for (const stock of stocks) {
-            if (remaining <= 0) break;
-            const deducted = Math.min(stock.stockQuantity, remaining);
-            await tx
-                .update(inventory)
-                .set({ stockQuantity: stock.stockQuantity - deducted })
-                .where(eq(inventory.id, stock.id));
-            remaining -= deducted;
+        const orders = new Map<number, CustomerOrderDetail>();
+        for (const row of rows) {
+            const existing = orders.get(row.transactionId) ?? {
+                id: row.transactionId,
+                orderToken: row.orderToken,
+                transactionDate: row.transactionDate.toISOString(),
+                status: row.status,
+                paymentStatus: row.paymentStatus,
+                paymentMethod: row.paymentMethod,
+                customerName: row.customerName,
+                notes: row.notes,
+                subtotalAmount: Number(row.subtotalAmount),
+                taxAmount: Number(row.taxAmount),
+                roundingAmount: Number(row.roundingAmount),
+                totalAmount: Number(row.totalAmount),
+                amountPaid: Number(row.amountPaid),
+                changeAmount: Number(row.changeAmount),
+                items: [],
+            };
+            existing.items.push({
+                id: row.itemId,
+                productName: row.productName,
+                quantity: row.quantity,
+                unitPrice: Number(row.unitPrice),
+                subtotal: Number(row.itemSubtotal),
+            });
+            orders.set(row.transactionId, existing);
         }
+
+        return {
+            success: true,
+            orders: Array.from(orders.values()),
+        };
+    } catch (error) {
+        console.error("Get customer session orders error:", error);
+        return {
+            success: false,
+            error: error instanceof Error ? error.message : "Gagal mengambil detail pesanan",
+        };
     }
 }
 
@@ -289,10 +407,11 @@ export async function completeCustomerOrder(formData: FormData): Promise<Complet
                 .from(transactionItems)
                 .where(eq(transactionItems.transactionId, orderId));
 
-            await deductIngredientsForItems(tx, items.map((item) => ({
+            const requirements = await getStockRequirements(tx, items.map((item) => ({
                 productId: item.productId,
                 quantity: item.quantity,
             })));
+            await deductStockLocked(tx, requirements, orderId);
 
             await tx
                 .update(transactions)
@@ -303,6 +422,7 @@ export async function completeCustomerOrder(formData: FormData): Promise<Complet
                     amountPaid: paidAmount.toString(),
                     changeAmount: paymentMethod === "cash" ? Math.max(paidAmount - totalAmount, 0).toString() : "0",
                     cashierId: session.user.id,
+                    reservationExpiresAt: null,
                 })
                 .where(eq(transactions.id, orderId));
 
@@ -338,5 +458,99 @@ export async function completeCustomerOrder(formData: FormData): Promise<Complet
             message: "Gagal menyelesaikan pesanan",
             error: error instanceof Error ? error.message : "Terjadi kesalahan",
         };
+    }
+}
+
+export async function cancelCustomerOrder(formData: FormData): Promise<CompleteCustomerOrderResult> {
+    try {
+        const orderToken = String(formData.get("orderToken") ?? "");
+        const sessionToken = String(formData.get("sessionToken") ?? "");
+        const reason = String(formData.get("reason") ?? "Dibatalkan pelanggan").trim().slice(0, 200);
+        if (!UUID_PATTERN.test(orderToken) || !UUID_PATTERN.test(sessionToken)) {
+            return { success: false, message: "Pesanan tidak valid", error: "Token pesanan tidak valid" };
+        }
+
+        const [order] = await db
+            .select()
+            .from(transactions)
+            .where(and(
+                eq(transactions.orderToken, orderToken),
+                eq(transactions.customerSessionToken, sessionToken)
+            ));
+        if (!order) return { success: false, message: "Pesanan tidak ditemukan", error: "Pesanan tidak ditemukan" };
+        if (order.status !== "pending" || order.paymentStatus !== "pending") {
+            return { success: false, message: "Pesanan tidak dapat dibatalkan", error: "Pesanan sudah diproses kasir" };
+        }
+
+        await db.transaction(async (tx) => {
+            await tx
+                .update(transactions)
+                .set({
+                    status: "voided",
+                    paymentStatus: "voided",
+                    voidReason: reason,
+                    voidedAt: new Date(),
+                    reservationExpiresAt: null,
+                })
+                .where(and(
+                    eq(transactions.id, order.id),
+                    eq(transactions.status, "pending"),
+                    eq(transactions.paymentStatus, "pending")
+                ));
+            await tx.insert(activityLogs).values({
+                action: "CUSTOMER_CANCEL",
+                tableName: "transactions",
+                recordId: String(order.id),
+                details: JSON.stringify({ reason, source: "customer" }),
+            });
+        });
+
+        revalidatePath("/pos/orders");
+        return { success: true, message: `Pesanan #${order.id} dibatalkan` };
+    } catch (error) {
+        console.error("Cancel customer order error:", error);
+        return { success: false, message: "Gagal membatalkan pesanan", error: error instanceof Error ? error.message : "Terjadi kesalahan" };
+    }
+}
+
+export async function cancelCustomerOrderByStaff(formData: FormData): Promise<CompleteCustomerOrderResult> {
+    try {
+        const session = await auth();
+        if (!session?.user || !["admin", "manager", "kasir"].includes(session.user.role)) {
+            return { success: false, message: "Unauthorized", error: "Silakan login sebagai staf" };
+        }
+        const orderId = Number(formData.get("orderId"));
+        const reason = String(formData.get("reason") ?? "").trim().slice(0, 200);
+        if (!Number.isInteger(orderId) || orderId <= 0 || !reason) {
+            return { success: false, message: "Data pembatalan tidak valid", error: "Alasan pembatalan wajib diisi" };
+        }
+
+        const updated = await db.transaction(async (tx) => {
+            const [order] = await tx.select().from(transactions).where(eq(transactions.id, orderId));
+            if (!order || order.status !== "pending" || order.paymentStatus !== "pending") {
+                throw new Error("Pesanan sudah diproses atau tidak ditemukan");
+            }
+            await tx.update(transactions).set({
+                status: "voided",
+                paymentStatus: "voided",
+                voidReason: reason,
+                voidedAt: new Date(),
+                cancelledBy: session.user.id,
+                reservationExpiresAt: null,
+            }).where(eq(transactions.id, orderId));
+            await tx.insert(activityLogs).values({
+                userId: session.user.id,
+                action: "CANCEL_ORDER",
+                tableName: "transactions",
+                recordId: String(orderId),
+                details: JSON.stringify({ reason, source: "staff" }),
+            });
+            return order;
+        });
+
+        revalidatePath("/pos/orders");
+        return { success: true, message: `Pesanan #${updated.id} dibatalkan` };
+    } catch (error) {
+        return { success: false, message: "Gagal membatalkan pesanan", error: error instanceof Error ? error.message : "Terjadi kesalahan" };
     }
 }

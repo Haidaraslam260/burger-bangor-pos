@@ -1,19 +1,35 @@
 "use client";
 
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
-import { createCustomerOrder } from "@/actions/customer-orders";
+import {
+    cancelCustomerOrder,
+    createCustomerOrder,
+    getCustomerSessionOrders,
+    type CustomerOrderDetail,
+} from "@/actions/customer-orders";
 import { CURRENCY_FORMAT, PRODUCT_CATEGORIES } from "@/constants";
 import type { Product } from "@/db/schema";
 import {
     CheckCircle2,
+    Clock,
+    CreditCard,
     Loader2,
     Minus,
     Moon,
     Plus,
+    ReceiptText,
+    RefreshCw,
     Search,
     ShoppingBag,
     Sun,
@@ -37,6 +53,7 @@ interface MenuCartItem {
 
 const TAX_RATE = 10;
 const CUSTOMER_THEME_KEY = "customer-menu-theme";
+const CUSTOMER_SESSION_KEY_PREFIX = "customer-menu-session";
 
 function calculateCart(items: MenuCartItem[]) {
     const subtotalAmount = items.reduce((sum, item) => sum + item.subtotal, 0);
@@ -69,6 +86,14 @@ export default function CustomerMenuClient({
         return localStorage.getItem(CUSTOMER_THEME_KEY) === "dark" ? "dark" : "light";
     });
     const [result, setResult] = useState<{ success: boolean; message: string; orderId?: number } | null>(null);
+    const [sessionToken, setSessionToken] = useState("");
+    const [sessionOrders, setSessionOrders] = useState<CustomerOrderDetail[]>([]);
+    const [latestOrder, setLatestOrder] = useState<CustomerOrderDetail | null>(null);
+    const [orderError, setOrderError] = useState<string | null>(null);
+    const [isRefreshingOrder, setIsRefreshingOrder] = useState(false);
+    const [isOrderDialogOpen, setIsOrderDialogOpen] = useState(false);
+    const [isConfirmDialogOpen, setIsConfirmDialogOpen] = useState(false);
+    const submitLockRef = useRef(false);
     const [isPending, startTransition] = useTransition();
 
     const cart = calculateCart(cartItems);
@@ -88,6 +113,44 @@ export default function CustomerMenuClient({
         document.documentElement.classList.toggle("dark", customerTheme === "dark");
         document.documentElement.style.colorScheme = customerTheme;
     }, [customerTheme]);
+
+    const storedSessionKey = `${CUSTOMER_SESSION_KEY_PREFIX}:${tableNumber || "unknown"}`;
+
+    async function refreshSessionOrders(token = sessionToken) {
+        if (!token || !tableNumber.trim()) return;
+
+        setIsRefreshingOrder(true);
+        const response = await getCustomerSessionOrders(token, tableNumber);
+        setIsRefreshingOrder(false);
+
+        if (response.success && response.orders) {
+            setSessionOrders(response.orders);
+            setLatestOrder(response.orders.at(-1) ?? null);
+            setOrderError(null);
+            return;
+        }
+
+        setOrderError(response.error ?? "Detail pesanan tidak bisa dimuat");
+    }
+
+    useEffect(() => {
+        if (typeof window === "undefined" || !tableNumber.trim()) return;
+        const storedToken = localStorage.getItem(storedSessionKey);
+        const token = storedToken || crypto.randomUUID();
+        localStorage.setItem(storedSessionKey, token);
+        setSessionToken(token);
+        void refreshSessionOrders(token);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [storedSessionKey, tableNumber]);
+
+    useEffect(() => {
+        if (!sessionOrders.some((order) => order.paymentStatus === "pending")) return;
+        const interval = window.setInterval(() => {
+            void refreshSessionOrders();
+        }, 8000);
+        return () => window.clearInterval(interval);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [sessionOrders, sessionToken]);
 
     function toggleCustomerTheme() {
         const nextTheme = customerTheme === "dark" ? "light" : "dark";
@@ -174,10 +237,19 @@ export default function CustomerMenuClient({
             setResult({ success: false, message: "Nomor meja wajib diisi" });
             return;
         }
+        setIsConfirmDialogOpen(true);
+    }
+
+    function confirmSubmitOrder() {
+        if (submitLockRef.current || isPending || cartItems.length === 0 || !sessionToken) return;
+        submitLockRef.current = true;
+        const idempotencyKey = crypto.randomUUID();
 
         const formData = new FormData();
         formData.append("data", JSON.stringify({
             tableNumber,
+            sessionToken,
+            idempotencyKey,
             customerName: customerName || undefined,
             notes: notes || undefined,
             items: cartItems.map((item) => ({
@@ -188,6 +260,7 @@ export default function CustomerMenuClient({
 
         startTransition(async () => {
             const response = await createCustomerOrder(formData);
+            submitLockRef.current = false;
             setResult({
                 success: response.success,
                 message: response.error || response.message,
@@ -195,11 +268,56 @@ export default function CustomerMenuClient({
             });
 
             if (response.success) {
+                await refreshSessionOrders(response.sessionToken ?? sessionToken);
+                setIsConfirmDialogOpen(false);
+                setIsOrderDialogOpen(true);
                 setCartItems([]);
                 setNotes("");
             }
         });
     }
+
+    function startNewOrderSession() {
+        if (typeof window === "undefined") return;
+        const token = crypto.randomUUID();
+        localStorage.setItem(storedSessionKey, token);
+        setSessionToken(token);
+        setSessionOrders([]);
+        setLatestOrder(null);
+        setResult(null);
+        setOrderError(null);
+        setIsOrderDialogOpen(false);
+    }
+
+    function cancelPendingOrder(order: CustomerOrderDetail) {
+        if (!sessionToken || isPending) return;
+        const formData = new FormData();
+        formData.set("orderToken", order.orderToken);
+        formData.set("sessionToken", sessionToken);
+        formData.set("reason", "Dibatalkan pelanggan sebelum diproses");
+
+        startTransition(async () => {
+            const response = await cancelCustomerOrder(formData);
+            setResult({ success: response.success, message: response.error || response.message });
+            await refreshSessionOrders();
+        });
+    }
+
+    const paymentStatusLabel = latestOrder?.paymentStatus === "paid"
+        ? "Sudah dibayar"
+        : latestOrder?.paymentStatus === "refunded"
+            ? "Refund"
+            : latestOrder?.paymentStatus === "voided"
+                ? "Dibatalkan"
+                : "Menunggu pembayaran";
+
+    const transactionStatusLabel = latestOrder?.status === "completed"
+        ? "Selesai"
+        : latestOrder?.status === "refunded"
+            ? "Refund"
+            : latestOrder?.status === "voided"
+                ? "Dibatalkan"
+                : "Menunggu kasir";
 
     return (
         <main className="min-h-screen bg-background pb-[260px] md:pb-40">
@@ -248,6 +366,109 @@ export default function CustomerMenuClient({
             </header>
 
             <section className="mx-auto max-w-5xl space-y-3 px-3 py-3 sm:space-y-4 sm:px-4 sm:py-4">
+                {latestOrder && (
+                    <div className="rounded-lg border bg-card p-3 shadow-sm sm:p-4">
+                        <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                                <div className="flex items-center gap-2">
+                                    <ReceiptText className="h-4 w-4 text-[#6f9900]" />
+                                    <h2 className="text-sm font-semibold sm:text-base">Pesanan #{latestOrder.id}</h2>
+                                </div>
+                                <p className="mt-1 text-xs text-muted-foreground">
+                                    {new Date(latestOrder.transactionDate).toLocaleString("id-ID", {
+                                        day: "2-digit",
+                                        month: "short",
+                                        hour: "2-digit",
+                                        minute: "2-digit",
+                                    })}
+                                    {latestOrder.customerName ? ` - ${latestOrder.customerName}` : ""}
+                                </p>
+                            </div>
+                            <Button
+                                type="button"
+                                variant="outline"
+                                size="icon"
+                                className="h-9 w-9 shrink-0"
+                                onClick={() => refreshSessionOrders()}
+                                disabled={isRefreshingOrder}
+                                aria-label="Refresh status pesanan"
+                            >
+                                <RefreshCw className={isRefreshingOrder ? "h-4 w-4 animate-spin" : "h-4 w-4"} />
+                            </Button>
+                        </div>
+
+                        <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                            <div className="flex items-center justify-between rounded-md bg-muted/60 px-3 py-2 text-sm">
+                                <span className="flex items-center gap-2 text-muted-foreground">
+                                    <Clock className="h-4 w-4" />
+                                    Status
+                                </span>
+                                <Badge variant={latestOrder.status === "completed" ? "default" : "secondary"}>
+                                    {transactionStatusLabel}
+                                </Badge>
+                            </div>
+                            <div className="flex items-center justify-between rounded-md bg-muted/60 px-3 py-2 text-sm">
+                                <span className="flex items-center gap-2 text-muted-foreground">
+                                    <CreditCard className="h-4 w-4" />
+                                    Pembayaran
+                                </span>
+                                <Badge variant={latestOrder.paymentStatus === "paid" ? "default" : "outline"}>
+                                    {paymentStatusLabel}
+                                </Badge>
+                            </div>
+                        </div>
+
+                        <div className="mt-3 space-y-2">
+                            {latestOrder.items.map((item) => (
+                                <div key={item.id} className="flex items-start justify-between gap-3 text-sm">
+                                    <div className="min-w-0">
+                                        <p className="truncate font-medium">{item.productName}</p>
+                                        <p className="text-xs text-muted-foreground">
+                                            {item.quantity} x {CURRENCY_FORMAT.format(item.unitPrice)}
+                                        </p>
+                                    </div>
+                                    <p className="shrink-0 font-semibold">{CURRENCY_FORMAT.format(item.subtotal)}</p>
+                                </div>
+                            ))}
+                        </div>
+
+                        <Separator className="my-3" />
+                        <div className="space-y-1 text-sm">
+                            <div className="flex justify-between text-muted-foreground">
+                                <span>Subtotal</span>
+                                <span>{CURRENCY_FORMAT.format(latestOrder.subtotalAmount)}</span>
+                            </div>
+                            <div className="flex justify-between text-muted-foreground">
+                                <span>Pajak {TAX_RATE}%</span>
+                                <span>{CURRENCY_FORMAT.format(latestOrder.taxAmount)}</span>
+                            </div>
+                            {latestOrder.roundingAmount !== 0 && (
+                                <div className="flex justify-between text-muted-foreground">
+                                    <span>Pembulatan</span>
+                                    <span>{CURRENCY_FORMAT.format(latestOrder.roundingAmount)}</span>
+                                </div>
+                            )}
+                            <div className="flex justify-between pt-1 text-base font-bold">
+                                <span>Total</span>
+                                <span className="text-[#6f9900]">{CURRENCY_FORMAT.format(latestOrder.totalAmount)}</span>
+                            </div>
+                            {latestOrder.paymentStatus === "paid" && (
+                                <div className="flex justify-between text-muted-foreground">
+                                    <span>Dibayar</span>
+                                    <span>{CURRENCY_FORMAT.format(latestOrder.amountPaid)}</span>
+                                </div>
+                            )}
+                            {latestOrder.changeAmount > 0 && (
+                                <div className="flex justify-between text-muted-foreground">
+                                    <span>Kembalian</span>
+                                    <span>{CURRENCY_FORMAT.format(latestOrder.changeAmount)}</span>
+                                </div>
+                            )}
+                        </div>
+                        {orderError && <p className="mt-2 text-sm font-medium text-red-600">{orderError}</p>}
+                    </div>
+                )}
+
                 <div className="grid gap-3">
                     <div className="relative">
                         <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
@@ -357,6 +578,236 @@ export default function CustomerMenuClient({
                 </div>
             </section>
 
+            <Dialog open={isConfirmDialogOpen} onOpenChange={setIsConfirmDialogOpen}>
+                <DialogContent className="max-h-[88dvh] overflow-y-auto p-4 sm:max-w-md sm:p-6">
+                    <DialogHeader className="pr-8 text-left">
+                        <DialogTitle>Konfirmasi Pesanan</DialogTitle>
+                        <DialogDescription>
+                            Periksa menu, jumlah, dan catatan sebelum pesanan dikirim ke kasir.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4">
+                        <div className="space-y-3 rounded-md border p-3">
+                            {cartItems.map((item) => (
+                                <div key={item.productId} className="flex items-start justify-between gap-3 text-sm">
+                                    <div>
+                                        <p className="font-medium">{item.productName}</p>
+                                        <p className="text-xs text-muted-foreground">
+                                            {item.quantity} x {CURRENCY_FORMAT.format(item.unitPrice)}
+                                        </p>
+                                    </div>
+                                    <p className="shrink-0 font-semibold">{CURRENCY_FORMAT.format(item.subtotal)}</p>
+                                </div>
+                            ))}
+                        </div>
+                        {(customerName || notes) && (
+                            <div className="rounded-md bg-muted/60 px-3 py-2 text-sm">
+                                {customerName && <p><span className="text-muted-foreground">Nama:</span> {customerName}</p>}
+                                {notes && <p><span className="text-muted-foreground">Catatan:</span> {notes}</p>}
+                            </div>
+                        )}
+                        <div className="space-y-1.5 text-sm">
+                            <div className="flex justify-between text-muted-foreground">
+                                <span>Subtotal</span>
+                                <span>{CURRENCY_FORMAT.format(cart.subtotalAmount)}</span>
+                            </div>
+                            <div className="flex justify-between text-muted-foreground">
+                                <span>Pajak {TAX_RATE}%</span>
+                                <span>{CURRENCY_FORMAT.format(cart.taxAmount)}</span>
+                            </div>
+                            {cart.roundingAmount !== 0 && (
+                                <div className="flex justify-between text-muted-foreground">
+                                    <span>Pembulatan</span>
+                                    <span>{CURRENCY_FORMAT.format(cart.roundingAmount)}</span>
+                                </div>
+                            )}
+                            <Separator className="my-2" />
+                            <div className="flex justify-between text-lg font-bold">
+                                <span>Total</span>
+                                <span className="text-[#6f9900]">{CURRENCY_FORMAT.format(cart.totalAmount)}</span>
+                            </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                            <Button type="button" variant="outline" onClick={() => setIsConfirmDialogOpen(false)}>
+                                Periksa Lagi
+                            </Button>
+                            <Button
+                                type="button"
+                                className="bg-[#A3DF02] text-black hover:bg-[#92c902]"
+                                disabled={isPending || submitLockRef.current}
+                                onClick={confirmSubmitOrder}
+                            >
+                                {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle2 className="mr-2 h-4 w-4" />}
+                                Konfirmasi
+                            </Button>
+                        </div>
+                    </div>
+                </DialogContent>
+            </Dialog>
+
+            <Dialog open={isOrderDialogOpen} onOpenChange={setIsOrderDialogOpen}>
+                <DialogContent className="max-h-[88dvh] overflow-y-auto p-4 sm:max-w-md sm:p-6">
+                    <DialogHeader className="pr-8 text-left">
+                        <DialogTitle className="flex items-center gap-2">
+                            <ReceiptText className="h-5 w-5 text-[#6f9900]" />
+                            {latestOrder ? `Rincian Pesanan #${latestOrder.id}` : "Rincian Pesanan"}
+                        </DialogTitle>
+                        <DialogDescription>
+                            Periksa kembali pesanan dan status pembayarannya.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    {latestOrder ? (
+                        <div className="space-y-4">
+                            {sessionOrders.length > 1 && (
+                                <div className="flex gap-2 overflow-x-auto pb-1">
+                                    {sessionOrders.map((order) => (
+                                        <Button
+                                            key={order.id}
+                                            type="button"
+                                            size="sm"
+                                            variant={latestOrder.id === order.id ? "default" : "outline"}
+                                            className={latestOrder.id === order.id ? "shrink-0 bg-[#A3DF02] text-black hover:bg-[#92c902]" : "shrink-0"}
+                                            onClick={() => setLatestOrder(order)}
+                                        >
+                                            #{order.id}
+                                        </Button>
+                                    ))}
+                                </div>
+                            )}
+                            <div className="grid gap-2">
+                                <div className="flex items-center justify-between rounded-md bg-muted/60 px-3 py-2 text-sm">
+                                    <span className="flex items-center gap-2 text-muted-foreground">
+                                        <Clock className="h-4 w-4" />
+                                        Status pesanan
+                                    </span>
+                                    <Badge variant={latestOrder.status === "completed" ? "default" : "secondary"}>
+                                        {transactionStatusLabel}
+                                    </Badge>
+                                </div>
+                                <div className="flex items-center justify-between rounded-md bg-muted/60 px-3 py-2 text-sm">
+                                    <span className="flex items-center gap-2 text-muted-foreground">
+                                        <CreditCard className="h-4 w-4" />
+                                        Pembayaran
+                                    </span>
+                                    <Badge variant={latestOrder.paymentStatus === "paid" ? "default" : "outline"}>
+                                        {paymentStatusLabel}
+                                    </Badge>
+                                </div>
+                            </div>
+
+                            <div>
+                                <div className="mb-2 flex items-center justify-between text-xs text-muted-foreground">
+                                    <span>Meja {tableNumber}</span>
+                                    <span>
+                                        {new Date(latestOrder.transactionDate).toLocaleString("id-ID", {
+                                            day: "2-digit",
+                                            month: "short",
+                                            hour: "2-digit",
+                                            minute: "2-digit",
+                                        })}
+                                    </span>
+                                </div>
+                                <div className="space-y-3 rounded-md border p-3">
+                                    {latestOrder.items.map((item) => (
+                                        <div key={item.id} className="flex items-start justify-between gap-3 text-sm">
+                                            <div className="min-w-0">
+                                                <p className="font-medium">{item.productName}</p>
+                                                <p className="text-xs text-muted-foreground">
+                                                    {item.quantity} x {CURRENCY_FORMAT.format(item.unitPrice)}
+                                                </p>
+                                            </div>
+                                            <p className="shrink-0 font-semibold">
+                                                {CURRENCY_FORMAT.format(item.subtotal)}
+                                            </p>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            <div className="space-y-1.5 text-sm">
+                                <div className="flex justify-between text-muted-foreground">
+                                    <span>Subtotal</span>
+                                    <span>{CURRENCY_FORMAT.format(latestOrder.subtotalAmount)}</span>
+                                </div>
+                                <div className="flex justify-between text-muted-foreground">
+                                    <span>Pajak {TAX_RATE}%</span>
+                                    <span>{CURRENCY_FORMAT.format(latestOrder.taxAmount)}</span>
+                                </div>
+                                {latestOrder.roundingAmount !== 0 && (
+                                    <div className="flex justify-between text-muted-foreground">
+                                        <span>Pembulatan</span>
+                                        <span>{CURRENCY_FORMAT.format(latestOrder.roundingAmount)}</span>
+                                    </div>
+                                )}
+                                <Separator className="my-2" />
+                                <div className="flex justify-between text-lg font-bold">
+                                    <span>Total</span>
+                                    <span className="text-[#6f9900]">
+                                        {CURRENCY_FORMAT.format(latestOrder.totalAmount)}
+                                    </span>
+                                </div>
+                                {latestOrder.paymentStatus === "paid" && (
+                                    <>
+                                        <div className="flex justify-between text-muted-foreground">
+                                            <span>Dibayar</span>
+                                            <span>{CURRENCY_FORMAT.format(latestOrder.amountPaid)}</span>
+                                        </div>
+                                        <div className="flex justify-between text-muted-foreground">
+                                            <span>Kembalian</span>
+                                            <span>{CURRENCY_FORMAT.format(latestOrder.changeAmount)}</span>
+                                        </div>
+                                    </>
+                                )}
+                            </div>
+
+                            {latestOrder.paymentStatus === "pending" && (
+                                <>
+                                    <p className="rounded-md bg-[#F3FFD5] px-3 py-2 text-sm text-[#527200] dark:bg-[#263500] dark:text-[#D4FF74]">
+                                        Stok dicadangkan selama 15 menit. Tunjukkan nomor pesanan ini kepada kasir.
+                                    </p>
+                                    <Button
+                                        type="button"
+                                        variant="destructive"
+                                        className="w-full"
+                                        disabled={isPending}
+                                        onClick={() => cancelPendingOrder(latestOrder)}
+                                    >
+                                        Batalkan Pesanan
+                                    </Button>
+                                </>
+                            )}
+                            {orderError && <p className="text-sm font-medium text-red-600">{orderError}</p>}
+
+                            <Button
+                                type="button"
+                                variant="outline"
+                                className="w-full"
+                                onClick={() => refreshSessionOrders()}
+                                disabled={isRefreshingOrder}
+                            >
+                                <RefreshCw className={isRefreshingOrder ? "mr-2 h-4 w-4 animate-spin" : "mr-2 h-4 w-4"} />
+                                Perbarui status
+                            </Button>
+                            {sessionOrders.length > 0 && sessionOrders.every((order) => order.paymentStatus !== "pending") && (
+                                <Button
+                                    type="button"
+                                    className="w-full bg-[#A3DF02] text-black hover:bg-[#92c902]"
+                                    onClick={startNewOrderSession}
+                                >
+                                    Pesanan Baru
+                                </Button>
+                            )}
+                        </div>
+                    ) : (
+                        <div className="flex items-center justify-center py-10 text-muted-foreground">
+                            <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                            Memuat rincian pesanan
+                        </div>
+                    )}
+                </DialogContent>
+            </Dialog>
+
             <section className="fixed inset-x-0 bottom-0 z-30 border-t bg-background shadow-lg">
                 <div className="mx-auto grid max-h-[62dvh] max-w-5xl gap-3 overflow-y-auto px-3 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] md:grid-cols-[1fr_320px] md:px-4">
                     <div className="min-h-0">
@@ -430,9 +881,34 @@ export default function CustomerMenuClient({
                             </Button>
                         </div>
                         {result && (
-                            <p className={result.success ? "text-sm font-medium text-green-600" : "text-sm font-medium text-red-600"}>
-                                {result.message}
-                            </p>
+                            <div className="flex items-center justify-between gap-3">
+                                <p className={result.success ? "text-sm font-medium text-green-600" : "text-sm font-medium text-red-600"}>
+                                    {result.message}
+                                </p>
+                                {result.success && latestOrder && (
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        className="shrink-0"
+                                        onClick={() => setIsOrderDialogOpen(true)}
+                                    >
+                                        <ReceiptText className="mr-1.5 h-4 w-4" />
+                                        Lihat Pesanan
+                                    </Button>
+                                )}
+                            </div>
+                        )}
+                        {!result && latestOrder && (
+                            <Button
+                                type="button"
+                                variant="outline"
+                                className="w-full"
+                                onClick={() => setIsOrderDialogOpen(true)}
+                            >
+                                <ReceiptText className="mr-2 h-4 w-4" />
+                                Lihat Pesanan #{latestOrder.id}
+                            </Button>
                         )}
                     </div>
                 </div>

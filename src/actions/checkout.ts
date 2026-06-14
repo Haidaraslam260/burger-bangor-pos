@@ -10,10 +10,11 @@ import {
     ingredients,
     activityLogs,
 } from "@/db/schema";
-import { and, eq, asc, gte, inArray, isNull, or } from "drizzle-orm";
+import { and, eq, gte, inArray, isNull, or } from "drizzle-orm";
 import { checkoutSchema } from "@/lib/validations";
 import type { CheckoutResult, RequiredIngredient } from "@/types";
 import { revalidatePath } from "next/cache";
+import { deductStockLocked, getStockRequirements } from "@/lib/stock-reservations";
 
 /**
  * Checkout Server Action
@@ -72,86 +73,10 @@ export async function checkout(
 
         // 3. Calculate payment change from final total
         const changeAmount = paymentMethod === "cash" ? amountPaid - totalAmount : 0;
-        const today = new Date().toISOString().split("T")[0];
-
         // 4. Execute in transaction
         const result = await db.transaction(async (tx) => {
-            // Get all product IDs
-            const productIds = items.map((item) => item.productId);
-
-            // Get recipes for all products
-            const allRecipes = await tx
-                .select()
-                .from(recipes)
-                .where(inArray(recipes.productId, productIds));
-
-            // Calculate required ingredients
-            const requiredIngredients = new Map<number, { name: string; needed: number }>();
-
-            for (const item of items) {
-                const productRecipes = allRecipes.filter(
-                    (r) => r.productId === item.productId
-                );
-
-                for (const recipe of productRecipes) {
-                    const current = requiredIngredients.get(recipe.ingredientId) || {
-                        name: "",
-                        needed: 0,
-                    };
-                    requiredIngredients.set(recipe.ingredientId, {
-                        name: current.name,
-                        needed: current.needed + recipe.quantityNeeded * item.quantity,
-                    });
-                }
-            }
-
-            // Check and deduct inventory using FIFO
-            for (const [ingredientId, requirement] of requiredIngredients) {
-                // Get all inventory for this ingredient, ordered by expiry date (FIFO)
-                const stocks = await tx
-                    .select()
-                    .from(inventory)
-                    .where(and(
-                        eq(inventory.ingredientId, ingredientId),
-                        or(isNull(inventory.expiryDate), gte(inventory.expiryDate, today))
-                    ))
-                    .orderBy(asc(inventory.expiryDate));
-
-                const totalAvailable = stocks.reduce(
-                    (sum, stock) => sum + stock.stockQuantity,
-                    0
-                );
-
-                // Check if we have enough stock
-                if (totalAvailable < requirement.needed) {
-                    throw new Error(
-                        `Stok tidak cukup untuk bahan ID ${ingredientId}. Dibutuhkan: ${requirement.needed}, Tersedia: ${totalAvailable}`
-                    );
-                }
-
-                // Deduct stock using FIFO
-                let remaining = requirement.needed;
-
-                for (const stock of stocks) {
-                    if (remaining <= 0) break;
-
-                    if (stock.stockQuantity <= remaining) {
-                        // Use all stock from this batch
-                        remaining -= stock.stockQuantity;
-                        await tx
-                            .update(inventory)
-                            .set({ stockQuantity: 0 })
-                            .where(eq(inventory.id, stock.id));
-                    } else {
-                        // Partial deduction
-                        await tx
-                            .update(inventory)
-                            .set({ stockQuantity: stock.stockQuantity - remaining })
-                            .where(eq(inventory.id, stock.id));
-                        remaining = 0;
-                    }
-                }
-            }
+            const requirements = await getStockRequirements(tx, items);
+            await deductStockLocked(tx, requirements);
 
             // Create transaction record
             const [newTransaction] = await tx

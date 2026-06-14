@@ -199,6 +199,11 @@ export const recipes = pgTable("recipes", {
 // ===========================================
 export const transactions = pgTable("transactions", {
     id: serial("id").primaryKey(),
+    restaurantTableId: integer("restaurant_table_id").references(() => restaurantTables.id),
+    orderToken: uuid("order_token").defaultRandom().notNull(),
+    customerSessionToken: uuid("customer_session_token"),
+    idempotencyKey: uuid("idempotency_key").defaultRandom().notNull(),
+    reservationExpiresAt: timestamp("reservation_expires_at"),
     transactionDate: timestamp("transaction_date").defaultNow().notNull(),
     type: transactionTypeEnum("type").notNull(),
     status: transactionStatusEnum("status").default("completed").notNull(),
@@ -338,6 +343,10 @@ export const transactionsRelations = relations(transactions, ({ one, many }) => 
     cashier: one(users, {
         fields: [transactions.cashierId],
         references: [users.id],
+    }),
+    restaurantTable: one(restaurantTables, {
+        fields: [transactions.restaurantTableId],
+        references: [restaurantTables.id],
     }),
     items: many(transactionItems),
 }));

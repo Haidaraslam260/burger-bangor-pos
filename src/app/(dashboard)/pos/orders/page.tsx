@@ -2,7 +2,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ClipboardList } from "lucide-react";
 import { db } from "@/lib/db";
-import { products, transactionItems, transactions } from "@/db/schema";
+import { products, restaurantTables, transactionItems, transactions } from "@/db/schema";
 import { desc, eq } from "drizzle-orm";
 import CustomerOrdersClient from "./customer-orders-client";
 
@@ -12,8 +12,10 @@ export default async function CustomerOrdersPage() {
             transactionId: transactions.id,
             transactionDate: transactions.transactionDate,
             totalAmount: transactions.totalAmount,
+            tableNumber: restaurantTables.tableNumber,
             customerName: transactions.customerName,
             notes: transactions.notes,
+            reservationExpiresAt: transactions.reservationExpiresAt,
             itemId: transactionItems.id,
             productName: products.name,
             quantity: transactionItems.quantity,
@@ -23,6 +25,7 @@ export default async function CustomerOrdersPage() {
         .from(transactions)
         .innerJoin(transactionItems, eq(transactionItems.transactionId, transactions.id))
         .innerJoin(products, eq(products.id, transactionItems.productId))
+        .leftJoin(restaurantTables, eq(restaurantTables.id, transactions.restaurantTableId))
         .where(eq(transactions.status, "pending"))
         .orderBy(desc(transactions.transactionDate));
 
@@ -30,8 +33,10 @@ export default async function CustomerOrdersPage() {
         id: number;
         transactionDate: Date;
         totalAmount: string;
+        tableNumber: string | null;
         customerName: string | null;
         notes: string | null;
+        reservationExpiresAt: Date | null;
         items: {
             id: number;
             productName: string;
@@ -46,8 +51,10 @@ export default async function CustomerOrdersPage() {
             id: row.transactionId,
             transactionDate: row.transactionDate,
             totalAmount: row.totalAmount,
+            tableNumber: row.tableNumber,
             customerName: row.customerName,
             notes: row.notes,
+            reservationExpiresAt: row.reservationExpiresAt,
             items: [],
         };
 

@@ -13,7 +13,7 @@ import {
     DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog";
-import { completeCustomerOrder } from "@/actions/customer-orders";
+import { cancelCustomerOrderByStaff, completeCustomerOrder } from "@/actions/customer-orders";
 import { CURRENCY_FORMAT, PAYMENT_METHOD_LABELS } from "@/constants";
 import type { PaymentMethod } from "@/db/schema";
 import { Banknote, CheckCircle2, Clock, CreditCard, Loader2, QrCode, Wallet } from "lucide-react";
@@ -25,6 +25,7 @@ interface PendingOrder {
     totalAmount: string;
     customerName: string | null;
     notes: string | null;
+    reservationExpiresAt: Date | null;
     items: {
         id: number;
         productName: string;
@@ -60,8 +61,10 @@ function extractTable(notes: string | null) {
 
 export default function CustomerOrdersClient({ orders }: CustomerOrdersClientProps) {
     const [selectedOrder, setSelectedOrder] = useState<PendingOrder | null>(null);
+    const [cancellingOrder, setCancellingOrder] = useState<PendingOrder | null>(null);
     const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("cash");
     const [amountPaid, setAmountPaid] = useState("");
+    const [cancelReason, setCancelReason] = useState("");
     const [isPending, startTransition] = useTransition();
 
     const totalAmount = selectedOrder ? Number(selectedOrder.totalAmount) : 0;
@@ -95,6 +98,24 @@ export default function CustomerOrdersClient({ orders }: CustomerOrdersClientPro
         });
     }
 
+    function handleCancel() {
+        if (!cancellingOrder || !cancelReason.trim()) return;
+        const formData = new FormData();
+        formData.set("orderId", String(cancellingOrder.id));
+        formData.set("reason", cancelReason.trim());
+
+        startTransition(async () => {
+            const result = await cancelCustomerOrderByStaff(formData);
+            if (result.success) {
+                toast.success(result.message);
+                setCancellingOrder(null);
+                setCancelReason("");
+            } else {
+                toast.error(result.error);
+            }
+        });
+    }
+
     if (orders.length === 0) {
         return (
             <div className="rounded-lg border py-12 text-center text-muted-foreground">
@@ -110,6 +131,9 @@ export default function CustomerOrdersClient({ orders }: CustomerOrdersClientPro
                 {orders.map((order) => {
                     const tableNumber = extractTable(order.notes);
                     const itemCount = order.items.reduce((sum, item) => sum + item.quantity, 0);
+                    const isExpired = order.reservationExpiresAt
+                        ? new Date(order.reservationExpiresAt).getTime() < Date.now()
+                        : false;
 
                     return (
                         <article key={order.id} className="rounded-lg border p-4">
@@ -124,7 +148,9 @@ export default function CustomerOrdersClient({ orders }: CustomerOrdersClientPro
                                         {formatDate(order.transactionDate)}
                                     </p>
                                 </div>
-                                <Badge variant="destructive">Menunggu</Badge>
+                                <Badge variant={isExpired ? "secondary" : "destructive"}>
+                                    {isExpired ? "Reservasi habis" : "Menunggu"}
+                                </Badge>
                             </div>
 
                             <div className="mt-4 space-y-2">
@@ -150,6 +176,9 @@ export default function CustomerOrdersClient({ orders }: CustomerOrdersClientPro
                                         {CURRENCY_FORMAT.format(Number(order.totalAmount))}
                                     </p>
                                 </div>
+                                <Button variant="outline" onClick={() => setCancellingOrder(order)}>
+                                    Batalkan
+                                </Button>
                                 <Button className="bg-[#A3DF02] text-black hover:bg-[#92c902]" onClick={() => openPayment(order)}>
                                     Proses Bayar
                                 </Button>
@@ -236,6 +265,32 @@ export default function CustomerOrdersClient({ orders }: CustomerOrdersClientPro
                         >
                             {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                             Konfirmasi Bayar
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            <Dialog open={cancellingOrder !== null} onOpenChange={(open) => !open && setCancellingOrder(null)}>
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle>Batalkan Pesanan #{cancellingOrder?.id}</DialogTitle>
+                        <DialogDescription>
+                            Pesanan pending dapat dibatalkan sebelum pembayaran dikonfirmasi.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-2">
+                        <label className="text-sm font-medium">Alasan pembatalan</label>
+                        <Input
+                            value={cancelReason}
+                            onChange={(event) => setCancelReason(event.target.value)}
+                            placeholder="Contoh: pelanggan membatalkan pesanan"
+                        />
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setCancellingOrder(null)}>Tutup</Button>
+                        <Button variant="destructive" disabled={isPending || !cancelReason.trim()} onClick={handleCancel}>
+                            {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                            Batalkan Pesanan
                         </Button>
                     </DialogFooter>
                 </DialogContent>

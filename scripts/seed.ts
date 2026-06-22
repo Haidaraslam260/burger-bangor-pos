@@ -181,7 +181,7 @@ async function main() {
             price: "15000",
             description: "Burger hemat dengan single beef patty dan saus spesial Bangor.",
             isActive: 1,
-            imageUrl: "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=500&auto=format&fit=crop&q=60",
+            imageUrl: "/uploads/products/burger_jelata.png",
         },
         {
             name: "Burger Juragan",
@@ -189,7 +189,7 @@ async function main() {
             price: "22000",
             description: "Burger dengan beef patty tebal, sayuran segar, dan mayo spesial Bangor.",
             isActive: 1,
-            imageUrl: "https://images.unsplash.com/photo-1586190848861-99aa4a171e90?w=500&auto=format&fit=crop&q=60",
+            imageUrl: "/uploads/products/burger_juragan.png",
         },
         {
             name: "Chicken Burger",
@@ -197,7 +197,7 @@ async function main() {
             price: "17000",
             description: "Burger ayam empuk gurih dengan selada segar dan saus mayones.",
             isActive: 1,
-            imageUrl: "https://images.unsplash.com/photo-1625813506062-0aeb1d7a094b?w=500&auto=format&fit=crop&q=60",
+            imageUrl: "/uploads/products/chicken_burger.png",
         },
 
         // CHEESE
@@ -207,7 +207,7 @@ async function main() {
             price: "18000",
             description: "Burger klasik dengan keju cheddar slice lumer yang menggugah selera.",
             isActive: 1,
-            imageUrl: "https://images.unsplash.com/photo-1572802419224-296b0aeee0d9?w=500&auto=format&fit=crop&q=60",
+            imageUrl: "/uploads/products/cheese_burger.png",
         },
         {
             name: "Double Cheese Burger",
@@ -215,7 +215,7 @@ async function main() {
             price: "25000",
             description: "Dua beef patty juicy dengan dua lapisan keju cheddar slice lumer.",
             isActive: 1,
-            imageUrl: "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=500&auto=format&fit=crop&q=60",
+            imageUrl: "https://images.unsplash.com/photo-1550547660-d9450f859349?w=500&auto=format&fit=crop&q=60",
         },
         {
             name: "Cheese Fries",
@@ -223,7 +223,7 @@ async function main() {
             price: "18000",
             description: "Kentang goreng renyah disiram saus keju cheddar dan mayones melimpah.",
             isActive: 1,
-            imageUrl: "https://images.unsplash.com/photo-1573080496219-bb080dd4f877?w=500&auto=format&fit=crop&q=60",
+            imageUrl: "https://images.unsplash.com/photo-1576107232684-1279f390859f?w=500&auto=format&fit=crop&q=60",
         },
 
         // PREMIUM
@@ -233,7 +233,7 @@ async function main() {
             price: "35000",
             description: "Burger termewah dengan DOUBLE beef patty, DOUBLE cheese, bacon renyah, dan telur dadar.",
             isActive: 1,
-            imageUrl: "https://images.unsplash.com/photo-1550547660-d9450f859349?w=500&auto=format&fit=crop&q=60",
+            imageUrl: "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=500&auto=format&fit=crop&q=60",
         },
         {
             name: "BBQ Bacon Burger",
@@ -249,7 +249,7 @@ async function main() {
             price: "30000",
             description: "Burger sapi premium dengan tambahan smoked beef, keju cheddar slice, dan saus spesial.",
             isActive: 1,
-            imageUrl: "https://images.unsplash.com/photo-1525059696034-4967a8e1dca2?w=500&auto=format&fit=crop&q=60",
+            imageUrl: "https://images.unsplash.com/photo-1572802419224-296b0aeee0d9?w=500&auto=format&fit=crop&q=60",
         },
 
         // PAKET
@@ -259,7 +259,7 @@ async function main() {
             price: "25000",
             description: "Paket kenyang hemat: Burger Jelata + French Fries Regular + Es Lemon Tea.",
             isActive: 1,
-            imageUrl: "https://images.unsplash.com/photo-1610614819513-58e34989848b?w=500&auto=format&fit=crop&q=60",
+            imageUrl: "/uploads/products/paket_jelata.png",
         },
         {
             name: "Paket Juragan",
@@ -267,7 +267,7 @@ async function main() {
             price: "33000",
             description: "Paket terfavorit: Burger Juragan + French Fries Regular + Milo Dino dingin.",
             isActive: 1,
-            imageUrl: "https://images.unsplash.com/photo-1549465220-1a8b9238cd48?w=500&auto=format&fit=crop&q=60",
+            imageUrl: "/uploads/products/paket_juragan.png",
         },
         {
             name: "Paket Sultan",
@@ -275,7 +275,7 @@ async function main() {
             price: "50000",
             description: "Paket lengkap mewah: Burger Sultan + Cheese Fries + Kopi Susu Bangor.",
             isActive: 1,
-            imageUrl: "https://images.unsplash.com/photo-1606755962773-d324e0a13086?w=500&auto=format&fit=crop&q=60",
+            imageUrl: "/uploads/products/paket_sultan.png",
         },
 
         // MINUMAN
@@ -285,7 +285,7 @@ async function main() {
             price: "5000",
             description: "Es teh manis seduh segar pelepas dahaga.",
             isActive: 1,
-            imageUrl: "https://images.unsplash.com/photo-1556679343-c7306c1976bc?w=500&auto=format&fit=crop&q=60",
+            imageUrl: "/uploads/products/es_teh_manis.png",
         },
         {
             name: "Lemon Tea",
@@ -293,7 +293,7 @@ async function main() {
             price: "8000",
             description: "Es teh rasa lemon segar dengan asam manis yang pas.",
             isActive: 1,
-            imageUrl: "https://images.unsplash.com/photo-1513558161293-cdaf765ed2fd?w=500&auto=format&fit=crop&q=60",
+            imageUrl: "/uploads/products/lemon_tea.png",
         },
         {
             name: "Milo Dino",
@@ -301,7 +301,7 @@ async function main() {
             price: "10000",
             description: "Es cokelat Milo manis legit dengan taburan bubuk Milo ekstra di atasnya.",
             isActive: 1,
-            imageUrl: "https://images.unsplash.com/photo-1544787219-7f47ccb76574?w=500&auto=format&fit=crop&q=60",
+            imageUrl: "/uploads/products/milo_dino.png",
         },
         {
             name: "Kopi Susu Bangor",
@@ -309,7 +309,7 @@ async function main() {
             price: "12000",
             description: "Kopi susu espresso dingin dengan gula aren legit khas Bangor.",
             isActive: 1,
-            imageUrl: "https://images.unsplash.com/photo-1541167760496-1628856ab772?w=500&auto=format&fit=crop&q=60",
+            imageUrl: "/uploads/products/kopi_susu_bangor.png",
         },
         {
             name: "Air Mineral",
@@ -317,7 +317,7 @@ async function main() {
             price: "4000",
             description: "Air mineral botol 600ml segar dingin.",
             isActive: 1,
-            imageUrl: "https://images.unsplash.com/photo-1523362628745-0c100150b504?w=500&auto=format&fit=crop&q=60",
+            imageUrl: "/uploads/products/air_mineral.png",
         },
 
         // SNACK
@@ -327,7 +327,7 @@ async function main() {
             price: "10000",
             description: "Kentang goreng renyah gurih dengan saus sambal.",
             isActive: 1,
-            imageUrl: "https://images.unsplash.com/photo-1576107232684-1279f390859f?w=500&auto=format&fit=crop&q=60",
+            imageUrl: "/uploads/products/french_fries_regular.png",
         },
         {
             name: "French Fries Large",
@@ -335,7 +335,7 @@ async function main() {
             price: "15000",
             description: "Kentang goreng renyah gurih porsi besar.",
             isActive: 1,
-            imageUrl: "https://images.unsplash.com/photo-1608897013039-887f21d8c804?w=500&auto=format&fit=crop&q=60",
+            imageUrl: "/uploads/products/french_fries_large.png",
         },
         {
             name: "Onion Rings",
@@ -343,7 +343,7 @@ async function main() {
             price: "12000",
             description: "Bawang bombay cincin goreng tepung renyah isi 6 pcs.",
             isActive: 1,
-            imageUrl: "https://images.unsplash.com/photo-1639024471283-2bc7b3c6a267?w=500&auto=format&fit=crop&q=60",
+            imageUrl: "/uploads/products/onion_rings.png",
         },
         {
             name: "Mozzarella Sticks",
@@ -351,7 +351,7 @@ async function main() {
             price: "15000",
             description: "Stik keju mozzarella goreng krispi dengan keju molor isi 4 pcs.",
             isActive: 1,
-            imageUrl: "https://images.unsplash.com/photo-1531749668029-2db88e4b76ce?w=500&auto=format&fit=crop&q=60",
+            imageUrl: "/uploads/products/mozzarella_sticks.png",
         },
     ]).returning();
 

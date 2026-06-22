@@ -22,7 +22,7 @@ function sanitizeFileName(value: string) {
 
 export async function POST(request: Request) {
     const session = await auth();
-    if (!session?.user || session.user.role !== "admin") {
+    if (!session?.user || !["admin", "manager"].includes(session.user.role)) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 

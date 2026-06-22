@@ -6,13 +6,19 @@ import { ingredients, inventory } from "@/db/schema";
 import IngredientsClient from "./ingredients-client";
 
 export default async function IngredientsPage() {
-    const ingredientList = await db.select().from(ingredients).orderBy(ingredients.name);
-    const inventoryRows = await db
-        .select({
-            ingredientId: inventory.ingredientId,
-            stockQuantity: inventory.stockQuantity,
-        })
-        .from(inventory);
+    // Fetch ingredients and inventory rows in parallel to optimize query execution time
+    const [ingredientListPromise, inventoryRowsPromise] = await Promise.all([
+        db.select().from(ingredients).orderBy(ingredients.name),
+        db
+            .select({
+                ingredientId: inventory.ingredientId,
+                stockQuantity: inventory.stockQuantity,
+            })
+            .from(inventory)
+    ]);
+
+    const ingredientList = ingredientListPromise;
+    const inventoryRows = inventoryRowsPromise;
 
     const stockByIngredientId = new Map<number, number>();
     for (const row of inventoryRows) {

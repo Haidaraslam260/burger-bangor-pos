@@ -55,7 +55,9 @@ export async function login(
  * Logout action
  */
 export async function logout(): Promise<void> {
-    await signOut({ redirect: true, redirectTo: "/login" });
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL;
+    const redirectTo = siteUrl ? `${siteUrl}/login` : "/login";
+    await signOut({ redirect: true, redirectTo });
 }
 
 /**

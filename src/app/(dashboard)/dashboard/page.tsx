@@ -27,28 +27,38 @@ export default async function DashboardPage() {
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
 
-    // 1. Total Sales Today
-    const [salesResult] = await db
-        .select({ total: sum(transactions.totalAmount) })
-        .from(transactions)
-        .where(and(
-            gte(transactions.transactionDate, today),
-            lt(transactions.transactionDate, tomorrow),
-            eq(transactions.status, "completed")
-        ));
+    // Fetch data in parallel to optimize query execution time
+    const [salesResultPromise, stockRowsPromise, trxCountResultPromise] = await Promise.all([
+        db
+            .select({ total: sum(transactions.totalAmount) })
+            .from(transactions)
+            .where(and(
+                gte(transactions.transactionDate, today),
+                lt(transactions.transactionDate, tomorrow),
+                eq(transactions.status, "completed")
+            )),
+        db
+            .select({
+                ingredientId: inventory.ingredientId,
+                stockQuantity: inventory.stockQuantity,
+                minStockThreshold: ingredients.minStockThreshold,
+            })
+            .from(inventory)
+            .innerJoin(ingredients, eq(inventory.ingredientId, ingredients.id)),
+        db
+            .select({ count: count() })
+            .from(transactions)
+            .where(and(
+                gte(transactions.transactionDate, today),
+                lt(transactions.transactionDate, tomorrow),
+                eq(transactions.status, "completed")
+            ))
+    ]);
 
+    const salesResult = salesResultPromise[0];
     const totalSales = Number(salesResult?.total) || 0;
 
-    // 2. Low Stock Ingredients (total stock per ingredient < configured minimum)
-    const stockRows = await db
-        .select({
-            ingredientId: inventory.ingredientId,
-            stockQuantity: inventory.stockQuantity,
-            minStockThreshold: ingredients.minStockThreshold,
-        })
-        .from(inventory)
-        .innerJoin(ingredients, eq(inventory.ingredientId, ingredients.id));
-
+    const stockRows = stockRowsPromise;
     const stockByIngredient = new Map<number, { totalStock: number; minStockThreshold: number }>();
     for (const row of stockRows) {
         const current = stockByIngredient.get(row.ingredientId) ?? {
@@ -65,16 +75,7 @@ export default async function DashboardPage() {
         (item) => item.totalStock < item.minStockThreshold
     ).length;
 
-    // 3. Total Transactions Today
-    const [trxCountResult] = await db
-        .select({ count: count() })
-        .from(transactions)
-        .where(and(
-            gte(transactions.transactionDate, today),
-            lt(transactions.transactionDate, tomorrow),
-            eq(transactions.status, "completed")
-        ));
-
+    const trxCountResult = trxCountResultPromise[0];
     const totalTrx = trxCountResult?.count || 0;
 
     // Quick Actions Config based on Role

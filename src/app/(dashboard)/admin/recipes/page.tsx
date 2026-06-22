@@ -7,21 +7,25 @@ import { eq } from "drizzle-orm";
 import RecipesClient from "./recipes-client";
 
 export default async function RecipesPage() {
-    // Get all products and ingredients
-    const productList = await db.select().from(products).orderBy(products.name);
-    const ingredientList = await db.select().from(ingredients).orderBy(ingredients.name);
+    // Fetch products, ingredients, and recipes in parallel to optimize query execution time
+    const [productListPromise, ingredientListPromise, recipeListPromise] = await Promise.all([
+        db.select().from(products).orderBy(products.name),
+        db.select().from(ingredients).orderBy(ingredients.name),
+        db
+            .select({
+                id: recipes.id,
+                productId: recipes.productId,
+                ingredientName: ingredients.name,
+                ingredientUnit: ingredients.unit,
+                quantityNeeded: recipes.quantityNeeded,
+            })
+            .from(recipes)
+            .innerJoin(ingredients, eq(recipes.ingredientId, ingredients.id))
+    ]);
 
-    // Get all recipes with ingredient info
-    const recipeList = await db
-        .select({
-            id: recipes.id,
-            productId: recipes.productId,
-            ingredientName: ingredients.name,
-            ingredientUnit: ingredients.unit,
-            quantityNeeded: recipes.quantityNeeded,
-        })
-        .from(recipes)
-        .innerJoin(ingredients, eq(recipes.ingredientId, ingredients.id));
+    const productList = productListPromise;
+    const ingredientList = ingredientListPromise;
+    const recipeList = recipeListPromise;
 
     // Group recipes by product
     const recipesByProduct: Record<number, typeof recipeList> = {};

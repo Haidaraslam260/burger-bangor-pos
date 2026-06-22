@@ -20,9 +20,9 @@ export const ROLE_PERMISSIONS = {
         canAccessManager: true,
         canAccessPos: true,
         canManageUsers: false,
-        canManageProducts: false,
-        canManageIngredients: false,
-        canManageRecipes: false,
+        canManageProducts: true,
+        canManageIngredients: true,
+        canManageRecipes: true,
         canManageInventory: true,
         canViewReports: true,
         canViewLogs: true,
@@ -65,10 +65,9 @@ export const NAV_ITEMS = {
     ],
     manager: [
         { label: "Dashboard", href: "/dashboard", icon: "LayoutDashboard" },
-        { label: "Point of Sales", href: "/pos", icon: "ShoppingCart" },
-        { label: "Pesanan Meja", href: "/pos/orders", icon: "ClipboardList" },
-        { label: "Inventory", href: "/manager/inventory", icon: "Warehouse" },
-        { label: "Reports", href: "/manager/reports", icon: "BarChart3" },
+        { label: "Products", href: "/admin/products", icon: "Package" },
+        { label: "Ingredients", href: "/admin/ingredients", icon: "Salad" },
+        { label: "Recipes", href: "/admin/recipes", icon: "ChefHat" },
         { label: "Activity Logs", href: "/manager/logs", icon: "FileText" },
     ],
     kasir: [
@@ -81,6 +80,9 @@ export const NAV_ITEMS = {
 // ROUTE PROTECTION CONFIG
 // ===========================================
 export const PROTECTED_ROUTES = {
+    "/admin/products": ["admin", "manager"],
+    "/admin/ingredients": ["admin", "manager"],
+    "/admin/recipes": ["admin", "manager"],
     "/admin": ["admin"],
     "/manager": ["admin", "manager"],
     "/pos": ["admin", "manager", "kasir"],

@@ -22,7 +22,7 @@ export async function upsertRecipeItem(
 ): Promise<ActionResult> {
     try {
         const session = await auth();
-        if (!session?.user || session.user.role !== "admin") {
+        if (!session?.user || !["admin", "manager"].includes(session.user.role)) {
             return { success: false, error: "Unauthorized" };
         }
 
@@ -70,7 +70,7 @@ export async function upsertRecipeItem(
 export async function deleteRecipeItem(recipeId: number): Promise<ActionResult> {
     try {
         const session = await auth();
-        if (!session?.user || session.user.role !== "admin") {
+        if (!session?.user || !["admin", "manager"].includes(session.user.role)) {
             return { success: false, error: "Unauthorized" };
         }
 
@@ -102,7 +102,7 @@ export async function setProductRecipe(
 ): Promise<ActionResult> {
     try {
         const session = await auth();
-        if (!session?.user || session.user.role !== "admin") {
+        if (!session?.user || !["admin", "manager"].includes(session.user.role)) {
             return { success: false, error: "Unauthorized" };
         }
 

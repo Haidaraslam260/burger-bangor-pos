@@ -20,70 +20,77 @@ export default async function ReportsPage() {
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
 
-    // 1. Fetch Real Stats
-    // Today's Sales
-    const [todayStats] = await db
-        .select({
-            sales: sum(transactions.totalAmount),
-            count: count(transactions.id)
-        })
-        .from(transactions)
-        .where(and(
-            gte(transactions.transactionDate, today),
-            lt(transactions.transactionDate, tomorrow),
-            eq(transactions.status, "completed")
-        ));
+    // Fetch all stats in parallel
+    const [
+        todayStatsPromise,
+        totalStatsPromise,
+        topProductsPromise,
+        paymentBreakdownPromise,
+        recentTransactionsPromise
+    ] = await Promise.all([
+        db
+            .select({
+                sales: sum(transactions.totalAmount),
+                count: count(transactions.id)
+            })
+            .from(transactions)
+            .where(and(
+                gte(transactions.transactionDate, today),
+                lt(transactions.transactionDate, tomorrow),
+                eq(transactions.status, "completed")
+            )),
+        db
+            .select({
+                sales: sum(transactions.totalAmount),
+                count: count(transactions.id)
+            })
+            .from(transactions)
+            .where(eq(transactions.status, "completed")),
+        db
+            .select({
+                name: products.name,
+                sold: sum(transactionItems.quantity),
+                revenue: sum(transactionItems.subtotal)
+            })
+            .from(transactionItems)
+            .innerJoin(products, eq(transactionItems.productId, products.id))
+            .innerJoin(transactions, eq(transactionItems.transactionId, transactions.id))
+            .where(eq(transactions.status, "completed"))
+            .groupBy(products.name)
+            .orderBy(desc(sum(transactionItems.quantity)))
+            .limit(5),
+        db
+            .select({
+                method: transactions.paymentMethod,
+                sales: sum(transactions.totalAmount),
+                count: count(transactions.id),
+            })
+            .from(transactions)
+            .where(eq(transactions.status, "completed"))
+            .groupBy(transactions.paymentMethod)
+            .orderBy(desc(sum(transactions.totalAmount))),
+        db
+            .select({
+                id: transactions.id,
+                transactionDate: transactions.transactionDate,
+                type: transactions.type,
+                status: transactions.status,
+                totalAmount: transactions.totalAmount,
+                paymentMethod: transactions.paymentMethod,
+                customerName: transactions.customerName,
+                cashierName: users.fullName,
+            })
+            .from(transactions)
+            .leftJoin(users, eq(transactions.cashierId, users.id))
+            .orderBy(desc(transactions.transactionDate))
+            .limit(20)
+    ]);
 
-    // Total Revenue (All Time)
-    const [totalStats] = await db
-        .select({
-            sales: sum(transactions.totalAmount),
-            count: count(transactions.id)
-        })
-        .from(transactions)
-        .where(eq(transactions.status, "completed"));
-
-    // Top Products (by quantity sold)
-    const topProducts = await db
-        .select({
-            name: products.name,
-            sold: sum(transactionItems.quantity),
-            revenue: sum(transactionItems.subtotal)
-        })
-        .from(transactionItems)
-        .innerJoin(products, eq(transactionItems.productId, products.id))
-        .innerJoin(transactions, eq(transactionItems.transactionId, transactions.id))
-        .where(eq(transactions.status, "completed"))
-        .groupBy(products.name)
-        .orderBy(desc(sum(transactionItems.quantity)))
-        .limit(5);
-
-    const paymentBreakdown = await db
-        .select({
-            method: transactions.paymentMethod,
-            sales: sum(transactions.totalAmount),
-            count: count(transactions.id),
-        })
-        .from(transactions)
-        .where(eq(transactions.status, "completed"))
-        .groupBy(transactions.paymentMethod)
-        .orderBy(desc(sum(transactions.totalAmount)));
-
-    const recentTransactions = await db
-        .select({
-            id: transactions.id,
-            transactionDate: transactions.transactionDate,
-            type: transactions.type,
-            status: transactions.status,
-            totalAmount: transactions.totalAmount,
-            paymentMethod: transactions.paymentMethod,
-            customerName: transactions.customerName,
-            cashierName: users.fullName,
-        })
-        .from(transactions)
-        .leftJoin(users, eq(transactions.cashierId, users.id))
-        .orderBy(desc(transactions.transactionDate))
-        .limit(20);
+    const todayStats = todayStatsPromise[0];
+    const totalStats = totalStatsPromise[0];
+    const topProducts = topProductsPromise;
+    const paymentBreakdown = paymentBreakdownPromise;
+    const recentTransactions = recentTransactionsPromise;
 
     const paymentRows = PAYMENT_METHODS.map((method) => {
         const item = paymentBreakdown.find((row) => row.method === method.value);

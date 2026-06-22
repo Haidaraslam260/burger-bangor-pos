@@ -17,7 +17,7 @@ export async function createIngredient(
 ): Promise<ActionResult> {
     try {
         const session = await auth();
-        if (!session?.user || session.user.role !== "admin") {
+        if (!session?.user || !["admin", "manager"].includes(session.user.role)) {
             return { success: false, error: "Unauthorized" };
         }
 
@@ -80,7 +80,7 @@ export async function updateIngredient(
 ): Promise<ActionResult> {
     try {
         const session = await auth();
-        if (!session?.user || session.user.role !== "admin") {
+        if (!session?.user || !["admin", "manager"].includes(session.user.role)) {
             return { success: false, error: "Unauthorized" };
         }
 
@@ -133,7 +133,7 @@ export async function updateIngredient(
 export async function deleteIngredient(ingredientId: number): Promise<ActionResult> {
     try {
         const session = await auth();
-        if (!session?.user || session.user.role !== "admin") {
+        if (!session?.user || !["admin", "manager"].includes(session.user.role)) {
             return { success: false, error: "Unauthorized" };
         }
 

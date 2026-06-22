@@ -139,7 +139,7 @@ export async function updateProduct(
 export async function archiveProduct(productId: number): Promise<ActionResult> {
     try {
         const session = await auth();
-        if (!session?.user || session.user.role !== "admin") {
+        if (!session?.user || !["admin", "manager"].includes(session.user.role)) {
             return { success: false, error: "Unauthorized" };
         }
 

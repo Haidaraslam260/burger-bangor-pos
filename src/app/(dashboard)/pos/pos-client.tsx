@@ -407,7 +407,9 @@ export default function POSClient({ products, availabilityByProductId }: POSClie
                                             {(isUnavailable || isLimited) && (
                                                 <Badge
                                                     variant={isUnavailable ? "destructive" : "outline"}
-                                                    className="absolute top-2 right-2 bg-background/90"
+                                                    className={`absolute top-2 right-2 ${
+                                                        isUnavailable ? "" : "bg-background/90"
+                                                    }`}
                                                 >
                                                     {isUnavailable ? "Habis" : `Sisa ${availability}`}
                                                 </Badge>

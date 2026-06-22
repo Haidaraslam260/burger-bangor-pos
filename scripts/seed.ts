@@ -215,7 +215,7 @@ async function main() {
             price: "25000",
             description: "Dua beef patty juicy dengan dua lapisan keju cheddar slice lumer.",
             isActive: 1,
-            imageUrl: "https://images.unsplash.com/photo-1534790566985-aae57c6fbe85?w=500&auto=format&fit=crop&q=60",
+            imageUrl: "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=500&auto=format&fit=crop&q=60",
         },
         {
             name: "Cheese Fries",
@@ -223,7 +223,7 @@ async function main() {
             price: "18000",
             description: "Kentang goreng renyah disiram saus keju cheddar dan mayones melimpah.",
             isActive: 1,
-            imageUrl: "https://images.unsplash.com/photo-1585109649139-366815a0d713?w=500&auto=format&fit=crop&q=60",
+            imageUrl: "https://images.unsplash.com/photo-1573080496219-bb080dd4f877?w=500&auto=format&fit=crop&q=60",
         },
 
         // PREMIUM
@@ -259,7 +259,7 @@ async function main() {
             price: "25000",
             description: "Paket kenyang hemat: Burger Jelata + French Fries Regular + Es Lemon Tea.",
             isActive: 1,
-            imageUrl: "https://images.unsplash.com/photo-1613946069412-38f7f1ff0b65?w=500&auto=format&fit=crop&q=60",
+            imageUrl: "https://images.unsplash.com/photo-1610614819513-58e34989848b?w=500&auto=format&fit=crop&q=60",
         },
         {
             name: "Paket Juragan",
@@ -267,7 +267,7 @@ async function main() {
             price: "33000",
             description: "Paket terfavorit: Burger Juragan + French Fries Regular + Milo Dino dingin.",
             isActive: 1,
-            imageUrl: "https://images.unsplash.com/photo-1606755962773-d324e0a13086?w=500&auto=format&fit=crop&q=60",
+            imageUrl: "https://images.unsplash.com/photo-1549465220-1a8b9238cd48?w=500&auto=format&fit=crop&q=60",
         },
         {
             name: "Paket Sultan",
@@ -275,7 +275,7 @@ async function main() {
             price: "50000",
             description: "Paket lengkap mewah: Burger Sultan + Cheese Fries + Kopi Susu Bangor.",
             isActive: 1,
-            imageUrl: "https://images.unsplash.com/photo-1549465220-1a8b9238cd48?w=500&auto=format&fit=crop&q=60",
+            imageUrl: "https://images.unsplash.com/photo-1606755962773-d324e0a13086?w=500&auto=format&fit=crop&q=60",
         },
 
         // MINUMAN
@@ -301,7 +301,7 @@ async function main() {
             price: "10000",
             description: "Es cokelat Milo manis legit dengan taburan bubuk Milo ekstra di atasnya.",
             isActive: 1,
-            imageUrl: "https://images.unsplash.com/photo-1541658016709-82535e94bc69?w=500&auto=format&fit=crop&q=60",
+            imageUrl: "https://images.unsplash.com/photo-1544787219-7f47ccb76574?w=500&auto=format&fit=crop&q=60",
         },
         {
             name: "Kopi Susu Bangor",
@@ -309,7 +309,7 @@ async function main() {
             price: "12000",
             description: "Kopi susu espresso dingin dengan gula aren legit khas Bangor.",
             isActive: 1,
-            imageUrl: "https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=500&auto=format&fit=crop&q=60",
+            imageUrl: "https://images.unsplash.com/photo-1541167760496-1628856ab772?w=500&auto=format&fit=crop&q=60",
         },
         {
             name: "Air Mineral",
@@ -317,7 +317,7 @@ async function main() {
             price: "4000",
             description: "Air mineral botol 600ml segar dingin.",
             isActive: 1,
-            imageUrl: "https://images.unsplash.com/photo-1608885898957-a599fb1b468b?w=500&auto=format&fit=crop&q=60",
+            imageUrl: "https://images.unsplash.com/photo-1523362628745-0c100150b504?w=500&auto=format&fit=crop&q=60",
         },
 
         // SNACK
@@ -327,7 +327,7 @@ async function main() {
             price: "10000",
             description: "Kentang goreng renyah gurih dengan saus sambal.",
             isActive: 1,
-            imageUrl: "https://images.unsplash.com/photo-1573080496219-bb080dd4f877?w=500&auto=format&fit=crop&q=60",
+            imageUrl: "https://images.unsplash.com/photo-1576107232684-1279f390859f?w=500&auto=format&fit=crop&q=60",
         },
         {
             name: "French Fries Large",

@@ -215,7 +215,7 @@ async function main() {
             price: "25000",
             description: "Dua beef patty juicy dengan dua lapisan keju cheddar slice lumer.",
             isActive: 1,
-            imageUrl: "https://images.unsplash.com/photo-1550547660-d9450f859349?w=500&auto=format&fit=crop&q=60",
+            imageUrl: "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=500&auto=format&fit=crop&q=60",
         },
         {
             name: "Cheese Fries",
@@ -223,7 +223,7 @@ async function main() {
             price: "18000",
             description: "Kentang goreng renyah disiram saus keju cheddar dan mayones melimpah.",
             isActive: 1,
-            imageUrl: "https://images.unsplash.com/photo-1576107232684-1279f390859f?w=500&auto=format&fit=crop&q=60",
+            imageUrl: "https://images.unsplash.com/photo-1630384060421-cb20d0e0649d?w=500&auto=format&fit=crop&q=60",
         },
 
         // PREMIUM
@@ -233,7 +233,7 @@ async function main() {
             price: "35000",
             description: "Burger termewah dengan DOUBLE beef patty, DOUBLE cheese, bacon renyah, dan telur dadar.",
             isActive: 1,
-            imageUrl: "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=500&auto=format&fit=crop&q=60",
+            imageUrl: "https://images.unsplash.com/photo-1550317138-10000687a72b?w=500&auto=format&fit=crop&q=60",
         },
         {
             name: "BBQ Bacon Burger",
@@ -241,7 +241,7 @@ async function main() {
             price: "32000",
             description: "Beef patty dengan bacon sapi, keju cheddar slice, bawang bombay, dan saus BBQ Bangor.",
             isActive: 1,
-            imageUrl: "https://images.unsplash.com/photo-1594212699903-ec8a3eca50f5?w=500&auto=format&fit=crop&q=60",
+            imageUrl: "https://images.unsplash.com/photo-1551782450-a2132b4ba21d?w=500&auto=format&fit=crop&q=60",
         },
         {
             name: "Smoked Beef Cheese Burger",
@@ -249,7 +249,7 @@ async function main() {
             price: "30000",
             description: "Burger sapi premium dengan tambahan smoked beef, keju cheddar slice, dan saus spesial.",
             isActive: 1,
-            imageUrl: "https://images.unsplash.com/photo-1572802419224-296b0aeee0d9?w=500&auto=format&fit=crop&q=60",
+            imageUrl: "https://images.unsplash.com/photo-1586190848861-99aa4a171e90?w=500&auto=format&fit=crop&q=60",
         },
 
         // PAKET

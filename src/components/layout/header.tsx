@@ -101,7 +101,7 @@ export function Header({ user }: HeaderProps) {
                         <DropdownMenuSeparator />
                         <DropdownMenuItem
                             className="text-red-600 focus:text-red-600"
-                            onClick={() => signOut({ callbackUrl: "/login" })}
+                            onClick={() => signOut({ redirectTo: "/login" })}
                         >
                             <LogOut className="mr-2 h-4 w-4" />
                             <span>Log out</span>

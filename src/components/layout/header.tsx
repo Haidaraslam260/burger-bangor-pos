@@ -1,6 +1,6 @@
 "use client";
 
-import { logout } from "@/actions/auth";
+import { signOut } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import {
     DropdownMenu,
@@ -101,7 +101,7 @@ export function Header({ user }: HeaderProps) {
                         <DropdownMenuSeparator />
                         <DropdownMenuItem
                             className="text-red-600 focus:text-red-600"
-                            onClick={() => logout()}
+                            onClick={() => signOut({ callbackUrl: "/login" })}
                         >
                             <LogOut className="mr-2 h-4 w-4" />
                             <span>Log out</span>
